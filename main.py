@@ -35,33 +35,32 @@ gateway_index = 0
 # ------------------- Premium Emoji Configuration -------------------
 
 PREMIUM_EMOJI_IDS = {
-    "✅": "6023660820544623088",   # ✨ Multi Sparkles / Celebration
-    "🔥": "5999340396432333728",   # 🔥 Purple Flame Heart
-    "❌": "6037570896766438989",   # 💀 White Skull (Dark Glow)
-    "⚡": "6026367225466720832",   # ⚡ Yellow Lightning Bolt
-    "💳": "5971944878815317190",   # 💫 Floating Color Dots
-    "💠": "5971837723676249096",   # 🌀 Neon Circle Rings
-    "📝": "6023660820544623088",   # ✨
-    "🌐": "6026367225466720832",   # ⚡
-    "🎯": "5974235702701853774",   # 🟠🟡🟢 Triple Ring Loader
-    "🤖": "6057466460886799210",   # 😼 Dark Cat Face
-    "🤵": "4949560993840629085",   # 🧠 Golden Maze
-    "💰": "5971944878815317190",   # 💫
-    "⏸️": "6001440193058444284",   # ⚙️ Arc Reactor
-    "▶️": "6285315214673975495",   # ➡️ Neon Arrow Right
-    "🛑": "5420323339723881652",   # ⚠️ Red Warning Triangle
-    "📊": "5971837723676249096",   # 🌀
-    "📦": "6066395745139824604",   # 🎀 Neon Pink Bow
-    "📋": "5974235702701853774",   # Triple Ring
-    "🔄": "5971837723676249096",   # 🌀 Neon Circle Rings
-    "⏳": "5971837723676249096",   # 🌀
-    "🚀": "6282977077427702833",   # 🎉 Color Confetti
-    "⚠️": "5420323339723881652",   # ⚠️ Red Warning Triangle
-    "💎": "6023660820544623088",   # ✨
+    "✅": "6023660820544623088",
+    "🔥": "5999340396432333728",
+    "❌": "6037570896766438989",
+    "⚡": "6026367225466720832",
+    "💳": "5971944878815317190",
+    "💠": "5971837723676249096",
+    "📝": "6023660820544623088",
+    "🌐": "6026367225466720832",
+    "🎯": "5974235702701853774",
+    "🤖": "6057466460886799210",
+    "🤵": "4949560993840629085",
+    "💰": "5971944878815317190",
+    "⏸️": "6001440193058444284",
+    "▶️": "6285315214673975495",
+    "🛑": "5420323339723881652",
+    "📊": "5971837723676249096",
+    "📦": "6066395745139824604",
+    "📋": "5974235702701853774",
+    "🔄": "5971837723676249096",
+    "⏳": "5971837723676249096",
+    "🚀": "6282977077427702833",
+    "⚠️": "5420323339723881652",
+    "💎": "6023660820544623088",
 }
 
 def premium_emoji(text):
-    """Replace Unicode emojis with <tg-emoji emoji-id="..."> for Premium custom emojis."""
     if not text:
         return text
     result = text
@@ -175,7 +174,6 @@ class PayPal:
             'application_context': {'vault': False},
         }
         
-        # حفظ استجابة تأكيد الدفع من PayPal لمستخرجات الأخطاء الدقيقة
         confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{r3}/confirm-payment-source', headers=he4, json=da3)
         try:
             confirm_json = confirm_res.json()
@@ -203,7 +201,6 @@ class PayPal:
         elif 'INSUFFICIENT_FUNDS' in text or 'INSUFFICIENT_FUNDS' in str(confirm_json): 
             return "INSUFFICIENT_FUNDS"
         else:
-            # استخراج سبب الرفض الصريح والمباشر من PayPal
             if isinstance(confirm_json, dict) and 'details' in confirm_json and len(confirm_json['details']) > 0:
                 issue = confirm_json['details'][0].get('issue', '')
                 description = confirm_json['details'][0].get('description', '')
@@ -219,9 +216,10 @@ class PayPal:
             except: 
                 return "DECLINED"
 
-# ------------------- Core API Engine -------------------
+# ------------------- Core API Engine (Round Robin) -------------------
 
 async def check_card_api(card_full, gateway_url):
+    """Check card on specific gateway"""
     async with api_semaphore:
         try:
             loop = asyncio.get_event_loop()
@@ -244,7 +242,7 @@ async def check_card_api(card_full, gateway_url):
 
 # ------------------- Card Format Generator -------------------
 
-async def format_response(card_full, status, response, taken, gateway_url, user_id, mode="Single"):
+async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
 
@@ -262,6 +260,11 @@ async def format_response(card_full, status, response, taken, gateway_url, user_
     else:
         user_status = "𝐅𝐫𝐞𝐞 𝐔𝐬𝐞𝐫 🤖"
 
+    # Gateway info - only for admins
+    gateway_info = ""
+    if user_id in ADMINS and gateway_url:
+        gateway_info = f"\n[🔗] 𝐆𝐚𝐭𝐞 #{gateway_num}: <code>{gateway_url}</code>"
+
     text = f"""#𝐏𝐚𝐲𝐏𝐚𝐥 𝐂𝐮𝐬𝐭𝐨𝐦 [{mode}] 🌟
 - - - - - - - - - - - - - - - - - - - - - -
 [ϟ] 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
@@ -272,7 +275,7 @@ async def format_response(card_full, status, response, taken, gateway_url, user_
 [ϟ] 𝐈𝐧𝐟𝐨: <code>{info}</code>
 [ϟ] 𝐁𝐚𝐧𝐤: <code>{bank}</code>
 [ϟ] 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: <code>{country}</code>
-[⎇] 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status})
+[⎇] 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status}){gateway_info}
 - - - - - - - - - - - - - - - - - - - - - -
 [⌤] 𝐃𝐞𝐯 𝐛𝐲: 𝐖𝐚𝐟𝐚 🍀"""
     return premium_emoji(text)
@@ -301,26 +304,27 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
          ▬▬▬ [ 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒 ] ▬▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 🤵 𝐀𝐃𝐌𝐈𝐍 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒:
-• <code>/add [url]</code> - Add processing gateway route
-• <code>/rmadd</code> - Pop last added gateway
-• <code>/ban_user [id]</code> - Lock account out of bot
-• <code>/unban_user [id]</code> - Restore access permissions
-• <code>/prm [id] [days]</code> - Manually inject VIP membership
-• <code>/rmprm [id]</code> - Clear account VIP status
-• <code>/wafa [days] [max]</code> - Generate key token seeds
-• <code>/show_users</code> - Fetch entire local user database
-• <code>/try [id] [msg]</code> - Broadcast message to specific user
-• <code>/SENT [msg]</code> - Broadcast message to all database users
+• <code>/add [url]</code> - Add processing gateway
+• <code>/rmadd</code> - Remove last gateway
+• <code>/show_gateways</code> - Show all gateways
+• <code>/ban_user [id]</code> - Ban user
+• <code>/unban_user [id]</code> - Unban user
+• <code>/prm [id] [days]</code> - Add VIP
+• <code>/rmprm [id]</code> - Remove VIP
+• <code>/wafa [days] [max]</code> - Generate keys
+• <code>/show_users</code> - Show all users
+• <code>/try [id] [msg]</code> - DM user
+• <code>/SENT [msg]</code> - Broadcast to all
 
 💎 𝐕𝐈𝐏 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒:
-• [Combo File Upload] - Trigger Mass Multi-Loop System Panel
+• Upload combo file - Mass checking
 
 🤖 𝐅𝐑𝐄𝐄 𝐔𝐒𝐄𝐑 𝐂𝐎𝐌𝐌𝐀𝐍𝐃𝐒:
-• <code>/start</code> - Launch active bot matrix
-• <code>/cmds</code> - Access available command parameters
-• <code>/pp [card]</code> - Single transactional entry gate
-• <code>/stop</code> - Emergency halt file sequence
-• <code>/code [wafa-key]</code> - Activate premium redeem vouchers
+• <code>/start</code> - Start bot
+• <code>/cmds</code> - Show commands
+• <code>/pp [card]</code> - Single check
+• <code>/stop</code> - Stop mass check
+• <code>/code [key]</code> - Activate VIP
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
@@ -355,15 +359,20 @@ async def process_pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         text = "💡 𝐔𝐬𝐚𝐠𝐞:\n<code>/pp 4242424242424242|09|28|123</code>"
         await update.message.reply_text(premium_emoji(text), parse_mode="HTML")
         return
-    if not GATEWAYS:
-        gateway = None
-    else:
-        gateway = GATEWAYS[gateway_index % len(GATEWAYS)]
+    
+    # Round Robin: select gateway
+    gateway_num = 0
+    gateway_url = None
+    if GATEWAYS:
+        gateway_num = (gateway_index % len(GATEWAYS)) + 1
+        gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
         gateway_index += 1
+    
     start_time = time.time()
-    status, response = await check_card_api(card_full, gateway)
+    status, response = await check_card_api(card_full, gateway_url)
     taken = round(time.time() - start_time, 2)
-    text = await format_response(card_full, status, response, taken, gateway, user_id, mode="Single")
+    
+    text = await format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single")
     await update.message.reply_text(text, parse_mode="HTML")
 
 # ------------------- Emergency Interrupt -------------------
@@ -396,7 +405,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-# ------------------- The Mass Panel Processing Loop -------------------
+# ------------------- The Mass Panel Processing Loop (Round Robin) -------------------
 
 async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global gateway_index
@@ -409,10 +418,13 @@ async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await file.download_to_drive(file_path)
 
         approved = live = declined = 0
+        card_counter = 0
         panel_msg = await update.message.reply_text(premium_emoji("𝐒𝐭𝐚𝐫𝐭 𝐂𝐡𝐞𝐜𝐤𝐢𝐧𝐠... 🎯"), parse_mode="HTML")
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
 
+        total_gateways = len(GATEWAYS)
+        
         for line in lines:
             if stop_users.get(user_id):
                 text = "🛑 𝐓𝐡𝐞 𝐞𝐱𝐚𝐦𝐢𝐧𝐚𝐭𝐢𝐨𝐧 𝐰𝐚𝐬 𝐬𝐭𝐨𝐩𝐩𝐞𝐝."
@@ -421,38 +433,48 @@ async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
             card_full = match[0]
-            if not GATEWAYS:
-                gateway = None
-            else:
-                gateway = GATEWAYS[gateway_index % len(GATEWAYS)]
-                gateway_index += 1
+            card_counter += 1
+            
+            # Round Robin: select gateway for each card
+            gateway_num = 0
+            gateway_url = None
+            if GATEWAYS:
+                gateway_num = ((card_counter - 1) % len(GATEWAYS)) + 1
+                gateway_url = GATEWAYS[(card_counter - 1) % len(GATEWAYS)]
+            
             start_time = time.time()
-            status, response = await check_card_api(card_full, gateway)
+            status, response = await check_card_api(card_full, gateway_url)
             await asyncio.sleep(random.uniform(0, 2))
             taken = round(time.time() - start_time, 2)
             
             if status == "approved":
                 approved += 1
-                text = await format_response(card_full, status, response, taken, gateway, user_id, mode="Mass")
+                text = await format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Mass")
                 await update.message.reply_text(text, parse_mode="HTML")
             elif status == "live":
                 live += 1
-                text = await format_response(card_full, status, response, taken, gateway, user_id, mode="Mass")
+                text = await format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Mass")
                 await update.message.reply_text(text, parse_mode="HTML")
             else:
                 declined += 1
                 
             last_info, last_bank, last_country = await get_bin_info(card_full.split("|")[0][:6])
-            gate_info = f"\n🌐 𝐆𝐚𝐭𝐞: <code>{gateway}</code>" if user_id in ADMINS and gateway else ""
+            
+            # Gateway info - only for admins
+            gate_info = ""
+            if user_id in ADMINS:
+                if total_gateways > 0:
+                    gate_info = f"\n🔗 𝐆𝐚𝐭𝐞 #{gateway_num} / {total_gateways}"
+            
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ 𝐌𝐀𝐒𝐒 𝐏𝐀𝐘𝐏𝐀𝐋 ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 ✅ 𝐂𝐡𝐚𝐫𝐠𝐞: <code>{approved}</code> 💎
 ✅ 𝐋𝐢𝐯𝐞: <code>{live}</code> ⚡
 ❌ 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝: <code>{declined}</code>
-📊 𝐓𝐨𝐭𝐚𝐥 𝐂𝐡𝐞𝐜𝐤𝐬: <code>{approved + live + declined}</code>
+📊 𝐓𝐨𝐭𝐚𝐥: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💳 𝐋𝐚𝐬𝐭 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
+💳 𝐂𝐚𝐫𝐝 #{card_counter}: <code>{card_full}</code>
 📝 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>{gate_info}
 💠 𝐈𝐧𝐟𝐨: <code>{last_info}</code>
 🤵 𝐁𝐚𝐧𝐤: <code>{last_bank}</code>
@@ -523,6 +545,16 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
         msg += f"• <code>{uid}</code> - <b>{status}</b>\n"
     await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
 
+async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    if not GATEWAYS:
+        await update.message.reply_text(premium_emoji("❌ 𝐍𝐨 𝐠𝐚𝐭𝐞𝐰𝐚𝐲𝐬 𝐚𝐝𝐝𝐞𝐝."), parse_mode="HTML")
+        return
+    msg = "🌐 𝐀𝐜𝐭𝐢𝐯𝐞 𝐆𝐚𝐭𝐞𝐰𝐚𝐲𝐬:\n\n"
+    for i, gateway in enumerate(GATEWAYS, 1):
+        msg += f"{i}. <code>{gateway}</code>\n"
+    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
+
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
     uid = int(context.args[0])
@@ -540,19 +572,23 @@ async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
     url = context.args[0]
     if url not in GATEWAYS:
         GATEWAYS.append(url)
-        await update.message.reply_text(premium_emoji("✅ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲 𝐚𝐝𝐝𝐞𝐝."), parse_mode="HTML")
+        await update.message.reply_text(premium_emoji(f"✅ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲 #{len(GATEWAYS)} 𝐚𝐝𝐝𝐞𝐝.\n📋 𝐓𝐨𝐭𝐚𝐥: <code>{len(GATEWAYS)}</code>"), parse_mode="HTML")
+    else:
+        await update.message.reply_text(premium_emoji("⚠️ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲 𝐚𝐥𝐫𝐞𝐚𝐝𝐲 𝐞𝐱𝐢𝐬𝐭𝐬."), parse_mode="HTML")
 
 async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
     if GATEWAYS:
-        GATEWAYS.pop()
-        await update.message.reply_text(premium_emoji("🗑 𝐆𝐚𝐭𝐞𝐰𝐚𝐲 𝐫𝐞𝐦𝐨𝐯𝐞𝐝."), parse_mode="HTML")
+        removed = GATEWAYS.pop()
+        await update.message.reply_text(premium_emoji(f"🗑 𝐆𝐚𝐭𝐞𝐰𝐚𝐲 #{len(GATEWAYS)+1} 𝐫𝐞𝐦𝐨𝐯𝐞𝐝:\n<code>{removed}</code>"), parse_mode="HTML")
+    else:
+        await update.message.reply_text(premium_emoji("❌ 𝐍𝐨 𝐠𝐚𝐭𝐞𝐰𝐚𝐲𝐬 𝐭𝐨 𝐫𝐞𝐦𝐨𝐯𝐞."), parse_mode="HTML")
 
 async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
     target_id, days = int(context.args[0]), int(context.args[1])
     VIP_USERS[target_id] = int(time.time()) + (days * 86400)
-    await update.message.reply_text(premium_emoji("✅ 𝐕𝐈𝐏 𝐚𝐝𝐝𝐞𝐝."), parse_mode="HTML")
+    await update.message.reply_text(premium_emoji(f"✅ 𝐕𝐈𝐏 𝐚𝐝𝐝𝐞𝐝 𝐟𝐨𝐫 {days} 𝐝𝐚𝐲𝐬."), parse_mode="HTML")
 
 async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
@@ -571,6 +607,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
   • Type <code>/cmds</code> to load global command cluster.
   • Drop combo files directly to activate mass loops.
+  • Cards are distributed evenly across all gateways.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
     await update.message.reply_text(premium_emoji(welcome_text), parse_mode="HTML")
 
@@ -587,6 +624,7 @@ def main():
     app.add_handler(CommandHandler("code", code_command))
     app.add_handler(CommandHandler("wafa", wafa_command))
     app.add_handler(CommandHandler("show_users", show_users))
+    app.add_handler(CommandHandler("show_gateways", show_gateways))
     app.add_handler(CommandHandler("ban_user", ban_user))
     app.add_handler(CommandHandler("unban_user", unban_user))
     app.add_handler(CommandHandler("try", try_reply))
