@@ -95,12 +95,14 @@ class PayPalCommerce:
         self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
         self.donation = "1.00"
         self.r = requests.Session()
+        self.r.verify = False
         self.uu = UserAgent()
         self.client_id = None
         self.access_token = None
         self.client_token = None
         self.form_data = {}
         self.ajax_url = None
+        self.cookies = {}
         self.target_url = target_url if target_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/'
         self.url = urlparse(self.target_url).netloc
         self.inurl = urlparse(self.target_url).path
@@ -115,6 +117,7 @@ class PayPalCommerce:
         try:
             headers = {'user-agent': self.uu.random, 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9'}
             response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
+            self.cookies = dict(response.cookies)
             html = response.text
             self._extract_client_id(html)
             self._extract_form_data(html)
@@ -178,16 +181,19 @@ class PayPalCommerce:
             for action in actions:
                 data = {'action': action, 'form-id': self.form_data.get('give-form-id', '')}
                 headers = {'user-agent': self.uu.random, 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
-                response = self.r.post(self.ajax_url, data=data, headers=headers, timeout=10)
+                response = self.r.post(self.ajax_url, data=data, headers=headers, cookies=self.cookies, timeout=10)
                 if response.status_code == 200 and response.text:
-                    json_data = response.json()
-                    if 'data' in json_data:
-                        if isinstance(json_data['data'], dict):
-                            self.client_token = json_data['data'].get('client_token') or json_data['data'].get('token')
-                        elif isinstance(json_data['data'], str):
-                            self.client_token = json_data['data']
-                        if self.client_token:
-                            return self.client_token
+                    try:
+                        json_data = response.json()
+                        if 'data' in json_data:
+                            if isinstance(json_data['data'], dict):
+                                self.client_token = json_data['data'].get('client_token') or json_data['data'].get('token')
+                            elif isinstance(json_data['data'], str):
+                                self.client_token = json_data['data']
+                            if self.client_token:
+                                return self.client_token
+                    except:
+                        pass
             return None
         except:
             return None
@@ -207,26 +213,43 @@ class PayPalCommerce:
         if not self.ajax_url:
             return None
         form_data = self.form_data.copy()
-        form_data.update({'give-amount': self.donation, 'payment-mode': 'paypal-commerce', 'give_first': random.choice(self.first_name), 'give_last': random.choice(self.last_name), 'give_email': self.email, 'give-gateway': 'paypal-commerce'})
-        headers = {'user-agent': self.uu.random, 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
+        form_data.update({
+            'give-amount': self.donation,
+            'payment-mode': 'paypal-commerce',
+            'give_first': random.choice(self.first_name),
+            'give_last': random.choice(self.last_name),
+            'give_email': self.email,
+            'give-gateway': 'paypal-commerce',
+        })
+        headers = {
+            'user-agent': self.uu.random,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'x-requested-with': 'XMLHttpRequest',
+            'origin': f'https://{self.url}',
+            'referer': f'https://{self.url}{self.inurl}',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
         actions = ['give_paypal_commerce_create_order', 'give_create_order', 'create_order']
         for action in actions:
             params = {'action': action}
             try:
-                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, timeout=15)
+                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
                 if response.status_code == 200 and response.text:
-                    json_data = response.json()
-                    if 'data' in json_data:
-                        if isinstance(json_data['data'], dict) and 'id' in json_data['data']:
-                            return json_data['data']['id']
-                        elif isinstance(json_data['data'], str):
-                            return json_data['data']
-                    if 'id' in json_data:
-                        return json_data['id']
-                    if 'order_id' in json_data:
-                        return json_data['order_id']
-                    if 'orderID' in json_data:
-                        return json_data['orderID']
+                    try:
+                        json_data = response.json()
+                        if 'data' in json_data:
+                            if isinstance(json_data['data'], dict) and 'id' in json_data['data']:
+                                return json_data['data']['id']
+                            elif isinstance(json_data['data'], str):
+                                return json_data['data']
+                        if 'id' in json_data:
+                            return json_data['id']
+                        if 'order_id' in json_data:
+                            return json_data['order_id']
+                        if 'orderID' in json_data:
+                            return json_data['orderID']
+                    except:
+                        pass
             except:
                 continue
         return None
@@ -250,13 +273,27 @@ class PayPalCommerce:
         if not self.ajax_url:
             return None
         form_data = self.form_data.copy()
-        form_data.update({'give-amount': self.donation, 'payment-mode': 'paypal-commerce', 'give_first': random.choice(self.first_name), 'give_last': random.choice(self.last_name), 'give_email': self.email, 'give-gateway': 'paypal-commerce'})
-        headers = {'user-agent': self.uu.random, 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
+        form_data.update({
+            'give-amount': self.donation,
+            'payment-mode': 'paypal-commerce',
+            'give_first': random.choice(self.first_name),
+            'give_last': random.choice(self.last_name),
+            'give_email': self.email,
+            'give-gateway': 'paypal-commerce',
+        })
+        headers = {
+            'user-agent': self.uu.random,
+            'accept': 'application/json, text/javascript, */*; q=0.01',
+            'x-requested-with': 'XMLHttpRequest',
+            'origin': f'https://{self.url}',
+            'referer': f'https://{self.url}{self.inurl}',
+            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        }
         actions = ['give_paypal_commerce_approve_order', 'give_approve_order', 'approve_order']
         for action in actions:
             params = {'action': action, 'order': order_id}
             try:
-                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, timeout=15)
+                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
                 if response.status_code == 200:
                     return response
             except:
