@@ -399,24 +399,43 @@ def check_stripe_sync(card, key_id="1"):
             exp_year = "20" + exp_year
         session = requests.Session()
         session.verify = False
+        
+        # === الخطوة 1: إنشاء token ===
         headers = {"Authorization": f"Bearer {pk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
-        data = {"card[number]": cc_number, "card[exp_month]": exp_month, "card[exp_year]": exp_year, "card[cvc]": cvc}
+        data = {
+            "card[number]": cc_number,
+            "card[exp_month]": exp_month,
+            "card[exp_year]": exp_year,
+            "card[cvc]": cvc,
+        }
         r = session.post("https://api.stripe.com/v1/tokens", headers=headers, data=data, timeout=30)
+        
         if r.status_code != 200:
             error = r.json().get("error", {})
             error_msg = error.get("message", "Unknown")
             decline_code = error.get("decline_code", "")
             error_code = error.get("code", "")
-            if "insufficient" in decline_code or "insufficient" in error_msg.lower() or "insufficient" in error_code:
-                return "LIVE"
-            elif "declined" in decline_code or "declined" in error_msg.lower():
-                return "DECLINED"
+            
+            # الرد الحقيقي من Stripe
+            if decline_code:
+                return f"{decline_code}: {error_msg}"
+            elif error_code:
+                return f"{error_code}: {error_msg}"
             else:
-                return error_msg[:50]
+                return error_msg[:100]
+        
         token_id = r.json()["id"]
+        
+        # === الخطوة 2: عمل charge بـ $1 ===
         headers = {"Authorization": f"Bearer {sk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
-        data = {"amount": "100", "currency": "usd", "source": token_id, "description": "WAFA"}
+        data = {
+            "amount": "100",
+            "currency": "usd",
+            "source": token_id,
+            "description": "WAFA",
+        }
         r = session.post("https://api.stripe.com/v1/charges", headers=headers, data=data, timeout=30)
+        
         if r.status_code == 200:
             status = r.json().get("status", "")
             if status == "succeeded":
@@ -430,16 +449,22 @@ def check_stripe_sync(card, key_id="1"):
             error_msg = error.get("message", "Unknown")
             decline_code = error.get("decline_code", "")
             error_code = error.get("code", "")
-            if "insufficient" in decline_code or "insufficient" in error_msg.lower() or "insufficient" in error_code:
-                return "LIVE"
-            elif "declined" in decline_code or "declined" in error_msg.lower():
-                return "DECLINED"
+            
+            # الرد الحقيقي من Stripe
+            if decline_code:
+                return f"{decline_code}: {error_msg}"
+            elif error_code:
+                return f"{error_code}: {error_msg}"
             else:
-                return error_msg[:50]
+                return error_msg[:100]
+                
     except Exception as e:
         return f"Error: {str(e)[:50]}"
     finally:
-        session.close()
+        try:
+            session.close()
+        except:
+            pass
 
 def classify_square_error(msg):
     msg_lower = str(msg).lower()
@@ -641,18 +666,22 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 async def format_stripe_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
-    if "CHARGE" in result:
+    
+    result_upper = str(result).upper()
+    if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
         status_text = "Approved / Charge $1 🔥💎"
-    elif "LIVE" in result:
+    elif "INSUFFICIENT" in result_upper:
         status_text = "Live / Insufficient Funds ✅✨"
     else:
-        status_text = "Declined / Error ❌"
+        status_text = "Declined ❌"
+    
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
     else:
         user_status = "Free User 🤖"
+    
     return premium_emoji(f"""#Stripe [{mode}] 🌟
 - - - - - - - - - - - - - - - - - - - - - -
 [ϟ] Card: <code>{card_full}</code>
@@ -858,11 +887,12 @@ async def process_stripe_file(file_path, chat_id, context):
             card_full = match[0]
             card_counter += 1
             result = await loop.run_in_executor(None, check_stripe_sync, card_full)
-            if "CHARGE" in result:
+            result_upper = str(result).upper()
+            if "CHARGE" in result_upper:
                 approved += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
-            elif "LIVE" in result:
+            elif "INSUFFICIENT" in result_upper:
                 live += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
