@@ -384,13 +384,13 @@ def check_stripe_sync(card, key_id="1"):
     try:
         if not STRIPE_KEYS:
             return "No Stripe keys"
-        key = STRIPE_KEYS.get(key_id) or STRIPE_KEYS.get("1")
+        key = STRIPE_KEYS.get(str(key_id))
         if not key:
-            return "No Stripe keys"
+            return f"Key {key_id} not found"
         pk = key.get("pk", "")
         sk = key.get("sk", "")
         if not pk or not sk:
-            return "Invalid keys"
+            return f"Key {key_id}: Invalid keys"
         parts = card.strip().split("|")
         if len(parts) != 4:
             return "INVALID FORMAT"
@@ -399,67 +399,45 @@ def check_stripe_sync(card, key_id="1"):
             exp_year = "20" + exp_year
         session = requests.Session()
         session.verify = False
-        
-        # === الخطوة 1: إنشاء token ===
         headers = {"Authorization": f"Bearer {pk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
-        data = {
-            "card[number]": cc_number,
-            "card[exp_month]": exp_month,
-            "card[exp_year]": exp_year,
-            "card[cvc]": cvc,
-        }
+        data = {"card[number]": cc_number, "card[exp_month]": exp_month, "card[exp_year]": exp_year, "card[cvc]": cvc}
         r = session.post("https://api.stripe.com/v1/tokens", headers=headers, data=data, timeout=30)
-        
         if r.status_code != 200:
             error = r.json().get("error", {})
             error_msg = error.get("message", "Unknown")
             decline_code = error.get("decline_code", "")
             error_code = error.get("code", "")
-            
-            # الرد الحقيقي من Stripe
             if decline_code:
-                return f"{decline_code}: {error_msg}"
+                return f"Key {key_id} | {decline_code}: {error_msg}"
             elif error_code:
-                return f"{error_code}: {error_msg}"
+                return f"Key {key_id} | {error_code}: {error_msg}"
             else:
-                return error_msg[:100]
-        
+                return f"Key {key_id} | {error_msg[:50]}"
         token_id = r.json()["id"]
-        
-        # === الخطوة 2: عمل charge بـ $1 ===
         headers = {"Authorization": f"Bearer {sk}", "Content-Type": "application/x-www-form-urlencoded", "User-Agent": "Mozilla/5.0"}
-        data = {
-            "amount": "100",
-            "currency": "usd",
-            "source": token_id,
-            "description": "WAFA",
-        }
+        data = {"amount": "100", "currency": "usd", "source": token_id, "description": "WAFA"}
         r = session.post("https://api.stripe.com/v1/charges", headers=headers, data=data, timeout=30)
-        
         if r.status_code == 200:
             status = r.json().get("status", "")
             if status == "succeeded":
-                return "CHARGE $1"
+                return f"Key {key_id} | CHARGE $1"
             elif status in ["pending", "processing"]:
-                return "LIVE"
+                return f"Key {key_id} | LIVE"
             else:
-                return f"STATUS: {status}"
+                return f"Key {key_id} | {status}"
         else:
             error = r.json().get("error", {})
             error_msg = error.get("message", "Unknown")
             decline_code = error.get("decline_code", "")
             error_code = error.get("code", "")
-            
-            # الرد الحقيقي من Stripe
             if decline_code:
-                return f"{decline_code}: {error_msg}"
+                return f"Key {key_id} | {decline_code}: {error_msg}"
             elif error_code:
-                return f"{error_code}: {error_msg}"
+                return f"Key {key_id} | {error_code}: {error_msg}"
             else:
-                return error_msg[:100]
-                
+                return f"Key {key_id} | {error_msg[:50]}"
     except Exception as e:
-        return f"Error: {str(e)[:50]}"
+        return f"Key {key_id} | Error: {str(e)[:50]}"
     finally:
         try:
             session.close()
@@ -666,22 +644,21 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 async def format_stripe_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
-    
     result_upper = str(result).upper()
     if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
         status_text = "Approved / Charge $1 🔥💎"
     elif "INSUFFICIENT" in result_upper:
         status_text = "Live / Insufficient Funds ✅✨"
+    elif "LIVE" in result_upper:
+        status_text = "Live ✅✨"
     else:
         status_text = "Declined ❌"
-    
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
     else:
         user_status = "Free User 🤖"
-    
     return premium_emoji(f"""#Stripe [{mode}] 🌟
 - - - - - - - - - - - - - - - - - - - - - -
 [ϟ] Card: <code>{card_full}</code>
@@ -838,7 +815,11 @@ async def process_paypal_file(file_path, chat_id, context):
             if status == "approved":
                 approved += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
-                await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                try:
+                    await msg.pin(disable_notification=True)
+                except:
+                    pass
             elif status == "live":
                 live += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
@@ -854,6 +835,7 @@ async def process_paypal_file(file_path, chat_id, context):
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
+🌐 Gate: <code>{gateway_num}</code>
 📝 Response: <code>{response}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
@@ -876,6 +858,8 @@ async def process_stripe_file(file_path, chat_id, context):
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🔄 Stripe Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
+        keys_list = list(STRIPE_KEYS.keys())
+        total_keys = len(keys_list)
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         for line in lines:
@@ -886,13 +870,18 @@ async def process_stripe_file(file_path, chat_id, context):
             if not match: continue
             card_full = match[0]
             card_counter += 1
-            result = await loop.run_in_executor(None, check_stripe_sync, card_full)
+            key_id = keys_list[(card_counter - 1) % total_keys]
+            result = await loop.run_in_executor(None, check_stripe_sync, card_full, key_id)
             result_upper = str(result).upper()
             if "CHARGE" in result_upper:
                 approved += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
-                await context.bot.send_message(chat_id, text, parse_mode="HTML")
-            elif "INSUFFICIENT" in result_upper:
+                msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                try:
+                    await msg.pin(disable_notification=True)
+                except:
+                    pass
+            elif "INSUFFICIENT" in result_upper or "LIVE" in result_upper:
                 live += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
@@ -907,7 +896,8 @@ async def process_stripe_file(file_path, chat_id, context):
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
-📝 Result: <code>{result}</code>"""
+🔑 Key: <code>{key_id}</code>
+📝 Result: <code>{result[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
@@ -940,7 +930,11 @@ async def process_square_file(file_path, chat_id, context):
             if "CHARGE" in result:
                 approved += 1
                 text = await format_square_response(card_full, result, 0, user_id, "Mass")
-                await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                try:
+                    await msg.pin(disable_notification=True)
+                except:
+                    pass
             elif "LIVE" in result:
                 live += 1
                 text = await format_square_response(card_full, result, 0, user_id, "Mass")
