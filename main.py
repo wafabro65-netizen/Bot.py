@@ -16,6 +16,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import (
     Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 )
+from datetime import datetime
 
 TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
 
@@ -40,16 +41,31 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    "✅": "6023660820544623088", "🔥": "5999340396432333728",
-    "❌": "6037570896766438989", "⚡": "6026367225466720832",
-    "💳": "5971944878815317190", "💠": "5971837723676249096",
-    "📝": "6023660820544623088", "🌐": "6026367225466720832",
-    "🎯": "5974235702701853774", "🤖": "6057466460886799210",
-    "🤵": "4949560993840629085", "💰": "5971944878815317190",
-    "🛑": "5420323339723881652", "📊": "5971837723676249096",
-    "🔄": "5971837723676249096", "⏳": "5971837723676249096",
-    "🚀": "6282977077427702833", "⚠️": "5420323339723881652",
-    "💎": "6023660820544623088",
+    "🚀": "5195033767969839232",
+    "🤖": "6039619012051082706",
+    "💎": "6039601162167000043",
+    "⭐": "6034999602925542852",
+    "✅": "6034891730526935918",
+    "❌": "6039615816595414817",
+    "📌": "6039389463228981149",
+    "👥": "6046639187636003094",
+    "👤": "6041709716231429926",
+    "🦾": "6042051651462766312",
+    "⚡": "6037229996622225123",
+    "🌟": "5956369596528204273",
+    "😳": "5900230031757547198",
+    "😂": "6026036006178789152",
+    "💲": "5929335569128623821",
+    "🎺": "5929509352095354418",
+    "📎": "5926906120877640711",
+    "👁": "5976794472418121581",
+    "💀": "5976323628038363401",
+    "💰": "4983539296163070766",
+    "🛑": "6039615816595414817",
+    "🔥": "5424972470023104089",
+    "🏦": "5332455502917949981",
+    "⏱": "5382194935057372936",
+    "💳": "5445353829304387411",
 }
 
 def premium_emoji(text):
@@ -308,6 +324,16 @@ class PayPalCommerce:
             n, mm, yy, cvc = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
             if "20" in yy:
                 yy = yy.split("20")[1]
+            
+            try:
+                exp_year = int(f"20{yy}")
+                exp_month = int(mm)
+                now = datetime.now()
+                if exp_year < now.year or (exp_year == now.year and exp_month < now.month):
+                    return "EXPIRED_CARD"
+            except:
+                pass
+            
             expiry = f"20{yy}-{mm}"
             order_id = self._create_order()
             if not order_id:
@@ -334,22 +360,41 @@ class PayPalCommerce:
                         break
                 except:
                     continue
+            
+            if isinstance(confirm_json, dict):
+                confirm_str = str(confirm_json).upper()
+                if 'EXPIRED_CARD' in confirm_str:
+                    return "EXPIRED_CARD"
+                if 'PAYEE_BLOCKED_TRANSACTION' in confirm_str:
+                    return "PAYEE_BLOCKED_TRANSACTION"
+                if 'SUSPECTED_FRAUD' in confirm_str:
+                    return "SUSPECTED_FRAUD"
+                if 'INSUFFICIENT_FUNDS' in confirm_str:
+                    return "INSUFFICIENT_FUNDS"
+                if 'details' in confirm_json and len(confirm_json['details']) > 0:
+                    issue = confirm_json['details'][0].get('issue', '')
+                    if issue and issue != 'ORDER_NOT_APPROVED':
+                        return issue
+            
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
-            if 'true' in text:
-                return 'CHARGE 1.0'
-            elif 'INSUFFICIENT_FUNDS' in text or 'INSUFFICIENT_FUNDS' in str(confirm_json):
+            text_upper = text.upper()
+            
+            if 'EXPIRED_CARD' in text_upper or 'EXPIRED_CREDIT_CARD' in text_upper:
+                return "EXPIRED_CARD"
+            elif 'PAYEE_BLOCKED_TRANSACTION' in text_upper:
+                return "PAYEE_BLOCKED_TRANSACTION"
+            elif 'SUSPECTED_FRAUD' in text_upper:
+                return "SUSPECTED_FRAUD"
+            elif 'INSUFFICIENT_FUNDS' in text_upper:
                 return "INSUFFICIENT_FUNDS"
-            elif 'ORDER_NOT_APPROVED' in str(confirm_json) or 'ORDER_NOT_APPROVED' in text:
+            elif 'true' in text.lower():
+                return 'CHARGE 1.0'
+            elif 'ORDER_NOT_APPROVED' in text_upper:
                 return "Payer cannot pay for this transaction."
-            elif 'DECLINED_PLEASE_RETRY' in text or 'DECLINED_PLEASE_RETRY' in str(confirm_json):
+            elif 'DECLINED_PLEASE_RETRY' in text_upper:
                 return "DECLINED_PLEASE_RETRY"
             else:
-                if isinstance(confirm_json, dict) and 'details' in confirm_json and len(confirm_json['details']) > 0:
-                    issue = confirm_json['details'][0].get('issue', '')
-                    description = confirm_json['details'][0].get('description', '')
-                    if issue and issue != 'ORDER_NOT_APPROVED':
-                        return f"{issue}: {description}" if description else issue
                 if isinstance(confirm_json, dict) and 'name' in confirm_json:
                     msg = confirm_json.get('message', '')
                     return f"{confirm_json.get('name')}: {msg}" if msg else confirm_json.get('name')
@@ -371,7 +416,7 @@ async def check_card_api(card_full, gateway_url):
                 return pp_engine.Charge(card_full)
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw).lower()
-            if "charge" in result or "success" in result:
+            if "true" in result or "charge" in result or "success" in result:
                 return "approved", result_raw
             elif "insufficient" in result:
                 return "live", result_raw
@@ -575,6 +620,376 @@ def check_square_sync(card):
     finally:
         session.close()
 
+# ============ لوحة الأزرار ============
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    username = update.effective_user.username or "No Username"
+    keyboard = [
+        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
+        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
+        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
+        [
+            InlineKeyboardButton("💳 Check", callback_data="check_panel"),
+            InlineKeyboardButton("📊 Stats", callback_data="stats_panel"),
+        ],
+    ]
+    await update.message.reply_text(
+        premium_emoji(f"""🔥 Welcome! @{username} 🔥
+- - - - - - - - - - - - - - - - - - - - - -
+🔥 Bot Status: Online 🚀"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(
+        premium_emoji("""🤖 FREE COMMANDS:
+• /start - Start
+• /cmds - Commands
+• /pp [card] - PayPal single
+• /st [card] - Stripe single
+• /sq [card] - Square single
+• /stop - Stop mass
+• /code [key] - Activate VIP"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(
+        premium_emoji("""💎 VIP COMMANDS:
+• Upload combo file - Mass checking
+• /st [card] - Stripe single
+• /sq [card] - Square single"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS:
+        await query.answer("Admin only!", show_alert=True)
+        return
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(
+        premium_emoji("""👑 ADMIN COMMANDS:
+• /add [url] - Add gateway
+• /rmadd [num] - Remove gateway
+• /show_gateways - Show gateways
+• /ban_user [id] - Ban user
+• /unban_user [id] - Unban user
+• /prm [id] [days] - Add VIP
+• /rmprm [id] - Remove VIP
+• /addkey [pk] [sk] - Add Stripe key
+• /rmkey [id] - Remove Stripe key
+• /wafa [days] [max] - Generate codes
+• /SENT [msg] - Broadcast"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [InlineKeyboardButton("💳 PayPal", callback_data="check_paypal")],
+        [InlineKeyboardButton("💳 Stripe", callback_data="check_stripe")],
+        [InlineKeyboardButton("💳 Square", callback_data="check_square")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_to_start")],
+    ]
+    await query.edit_message_text(
+        premium_emoji("💳 Choose check type:"),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def check_paypal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/pp [card]</code>"), parse_mode="HTML")
+
+async def check_stripe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/st [card]</code>"), parse_mode="HTML")
+
+async def check_square_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/sq [card]</code>"), parse_mode="HTML")
+
+async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(
+        premium_emoji(f"""📊 STATS:
+👥 Users: {len(ALL_USERS)}
+🌐 Gateways: {len(GATEWAYS)}
+🔑 Stripe Keys: {len(STRIPE_KEYS)}"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    username = query.from_user.username or "No Username"
+    keyboard = [
+        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
+        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
+        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
+        [
+            InlineKeyboardButton("💳 Check", callback_data="check_panel"),
+            InlineKeyboardButton("📊 Stats", callback_data="stats_panel"),
+        ],
+    ]
+    await query.edit_message_text(
+        premium_emoji(f"""🔥 Welcome! @{username} 🔥
+- - - - - - - - - - - - - - - - - - - - - -
+🔥 Bot Status: Online 🚀"""),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+# ============ لوحة البوابات ============
+
+async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS:
+        return
+    if not GATEWAYS:
+        await update.message.reply_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
+        return
+    keyboard = []
+    for i, gateway in enumerate(GATEWAYS, 1):
+        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+    await update.message.reply_text(
+        premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def gate_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS:
+        return
+    gate_num = int(query.data.split("_")[2])
+    if 1 <= gate_num <= len(GATEWAYS):
+        gateway_url = GATEWAYS[gate_num - 1]
+        keyboard = [
+            [InlineKeyboardButton("🗑 Remove", callback_data=f"gate_remove_{gate_num}")],
+            [InlineKeyboardButton("🔙 Back", callback_data="back_to_gateways")],
+        ]
+        await query.edit_message_text(
+            premium_emoji(f"🌐 <b>Gateway #{gate_num}:</b>\n<code>{gateway_url}</code>\n\nChoose action:"),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS:
+        return
+    gate_num = int(query.data.split("_")[2])
+    if 1 <= gate_num <= len(GATEWAYS):
+        GATEWAYS.pop(gate_num - 1)
+        keyboard = []
+        for i, gateway in enumerate(GATEWAYS, 1):
+            keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+        keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+        await query.edit_message_text(
+            premium_emoji(f"🗑 <b>Gateway #{gate_num} removed!</b>\n\n🌐 <b>Remaining ({len(GATEWAYS)}):</b>"),
+            parse_mode="HTML",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+async def back_to_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not GATEWAYS:
+        await query.edit_message_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
+        return
+    keyboard = []
+    for i, gateway in enumerate(GATEWAYS, 1):
+        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+    await query.edit_message_text(
+        premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"),
+        parse_mode="HTML",
+        reply_markup=InlineKeyboardMarkup(keyboard)
+    )
+
+async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.delete_message()
+
+# ============ أوامر ============
+
+async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    commands_text = """🤵 ADMIN:
+• /add [url] - Add PayPal gateway
+• /rmadd [num] - Remove gateway
+• /show_gateways - Show gateways
+• /ban_user [id] - Ban user
+• /unban_user [id] - Unban user
+• /prm [id] [days] - Add VIP
+• /rmprm [id] - Remove VIP
+• /wafa [days] [max] - Generate keys
+• /show_users - Show users
+• /try [id] [msg] - DM user
+• /SENT [msg] - Broadcast
+• /addkey [pk] [sk] - Add Stripe key
+• /rmkey [id] - Remove Stripe key
+
+💎 VIP:
+• Upload combo file - Mass checking
+• /st [card] - Stripe single
+• /sq [card] - Square single
+
+🤖 FREE:
+• /start - Start
+• /cmds - Commands
+• /pp [card] - PayPal single
+• /st [card] - Stripe single
+• /sq [card] - Square single
+• /stop - Stop mass
+• /code [key] - Activate VIP"""
+    await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
+
+async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
+        now = time.time()
+        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
+            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
+            return
+        last_check_time[user_id] = now
+    if not context.args:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/pp [card]</code>"), parse_mode="HTML")
+        return
+    card_full = " ".join(context.args)
+    gateway_num = 0
+    gateway_url = None
+    if GATEWAYS:
+        gateway_num = (gateway_index % len(GATEWAYS)) + 1
+        gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
+    status, response = await check_card_api(card_full, gateway_url)
+    text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
+    await update.message.reply_text(text, parse_mode="HTML")
+
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    stop_users[user_id] = True
+    await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
+
+async def try_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        user_id = int(context.args[0])
+        reply_text = " ".join(context.args[1:])
+        await context.bot.send_message(chat_id=user_id, text=premium_emoji(reply_text), parse_mode="HTML")
+    except: pass
+
+async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    broadcast_msg = " ".join(context.args)
+    for user_id in list(ALL_USERS):
+        try:
+            await context.bot.send_message(chat_id=user_id, text=premium_emoji(f"📢 {broadcast_msg}"), parse_mode="HTML")
+            await asyncio.sleep(0.05)
+        except: continue
+
+async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if not context.args: return
+    code = context.args[0].upper()
+    if code not in CODES: return
+    code_data = CODES[code]
+    if code_data["used"] >= code_data["max_users"]: return
+    VIP_USERS[user_id] = int(time.time()) + code_data["duration"] * 86400
+    code_data["used"] += 1
+    await update.message.reply_text(premium_emoji(f"🚀 VIP activated for {code_data['duration']} days."), parse_mode="HTML")
+
+async def wafa_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        duration, max_users = int(context.args[0]), int(context.args[1])
+        code = "WAFA-" + "-".join("".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3))
+        CODES[code] = {"duration": duration, "max_users": max_users, "used": 0, "created": time.time()}
+        await update.message.reply_text(premium_emoji(f"💰 Code: <code>{code}</code>"), parse_mode="HTML")
+    except: pass
+
+async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    msg = "📊 Users:\n\n"
+    for uid in ALL_USERS:
+        status = "BANNED" if uid in BANNED_USERS else "VIP" if uid in VIP_USERS else "NORMAL"
+        msg += f"• <code>{uid}</code> - <b>{status}</b>\n"
+    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
+
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    BANNED_USERS[int(context.args[0])] = True
+    await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
+
+async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    BANNED_USERS.pop(int(context.args[0]), None)
+    await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
+
+async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    url = context.args[0]
+    if url not in GATEWAYS:
+        GATEWAYS.append(url)
+        await update.message.reply_text(premium_emoji(f"✅ Gateway #{len(GATEWAYS)} added."), parse_mode="HTML")
+
+async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        if context.args:
+            idx = int(context.args[0])
+            if 1 <= idx <= len(GATEWAYS):
+                GATEWAYS.pop(idx - 1)
+                await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!"), parse_mode="HTML")
+            else:
+                await update.message.reply_text(premium_emoji(f"❌ Gateway #{idx} not found!"), parse_mode="HTML")
+        else:
+            if GATEWAYS:
+                GATEWAYS.pop()
+                await update.message.reply_text(premium_emoji("🗑 Last gateway removed."), parse_mode="HTML")
+    except:
+        await update.message.reply_text(premium_emoji("💡 Usage: /rmadd [number]"), parse_mode="HTML")
+
+async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
+    await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
+
+async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    VIP_USERS.pop(int(context.args[0]), None)
+    await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
+
 async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         return
@@ -585,19 +1000,11 @@ async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(premium_emoji("💡 Usage:\n<code>/addkey pk_live_xxx sk_live_xxx</code>"), parse_mode="HTML")
         return
     pk, sk = pk_match.group(0), sk_match.group(0)
-    key_id = None
-    for kid, key_data in STRIPE_KEYS.items():
-        if key_data.get("pk") == pk:
-            key_id = kid
-            break
-    if key_id:
-        STRIPE_KEYS[key_id] = {"pk": pk, "sk": sk}
-    else:
-        key_id = str(len(STRIPE_KEYS) + 1)
-        STRIPE_KEYS[key_id] = {"pk": pk, "sk": sk}
+    key_id = str(len(STRIPE_KEYS) + 1)
+    STRIPE_KEYS[key_id] = {"pk": pk, "sk": sk}
     with open('stripe_keys.json', 'w') as f:
         json.dump(STRIPE_KEYS, f)
-    await update.message.reply_text(premium_emoji(f"✅ Stripe Key Saved!\n🆔 Key ID: <code>{key_id}</code>\n🔑 PK: <code>{pk[:40]}...</code>\n🔐 SK: <code>{sk[:40]}...</code>"), parse_mode="HTML")
+    await update.message.reply_text(premium_emoji(f"✅ Stripe Key Saved!\n🆔 Key ID: <code>{key_id}</code>"), parse_mode="HTML")
 
 async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
@@ -611,6 +1018,8 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             json.dump(STRIPE_KEYS, f)
         await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!"), parse_mode="HTML")
 
+# ============ دوال التنسيق والفحص ============
+
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -622,11 +1031,13 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
         status_text = "Declined / Error ❌"
     if user_id in ADMINS:
         user_status = "Admin 👑"
+        gateway_info = f"\n[🔗] Gate #{gateway_num}: <code>{gateway_url}</code>" if gateway_url else ""
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
+        gateway_info = f"\n[🔗] Gate #{gateway_num}" if gateway_num else ""
     else:
         user_status = "Free User 🤖"
-    gateway_info = f"\n[🔗] Gate #{gateway_num}: <code>{gateway_url}</code>" if user_id in ADMINS and gateway_url else ""
+        gateway_info = ""
     return premium_emoji(f"""#PayPal [{mode}] 🌟
 - - - - - - - - - - - - - - - - - - - - - -
 [ϟ] Card: <code>{card_full}</code>
@@ -746,6 +1157,12 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     taken = round(time.time() - start_time, 2)
     text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
+
+def can_user_check(user_id, mode="file"):
+    if user_id in ADMINS: return True
+    if BANNED_USERS.get(user_id): return False
+    if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
+    return mode == "single"
 
 async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -961,177 +1378,6 @@ async def process_square_file(file_path, chat_id, context):
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-async def check_banned_guard(update: Update) -> bool:
-    if BANNED_USERS.get(update.effective_user.id):
-        await update.message.reply_text(premium_emoji("⚠️ Access Denied."), parse_mode="HTML")
-        return True
-    return False
-
-def can_user_check(user_id, mode="file"):
-    if user_id in ADMINS: return True
-    if BANNED_USERS.get(user_id): return False
-    if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
-    return mode == "single"
-
-async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    commands_text = """┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬▬ [ COMMANDS ] ▬▬▬
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-🤵 ADMIN:
-• <code>/add [url]</code> - Add PayPal gateway
-• <code>/rmadd</code> - Remove last gateway
-• <code>/show_gateways</code> - Show gateways
-• <code>/ban_user [id]</code> - Ban user
-• <code>/unban_user [id]</code> - Unban user
-• <code>/prm [id] [days]</code> - Add VIP
-• <code>/rmprm [id]</code> - Remove VIP
-• <code>/wafa [days] [max]</code> - Generate keys
-• <code>/show_users</code> - Show users
-• <code>/try [id] [msg]</code> - DM user
-• <code>/SENT [msg]</code> - Broadcast
-• <code>/addkey [pk] [sk]</code> - Add Stripe key
-• <code>/rmkey [id]</code> - Remove Stripe key
-
-💎 VIP:
-• Upload combo file - Mass checking
-• <code>/st [card]</code> - Stripe single
-• <code>/sq [card]</code> - Square single
-
-🤖 FREE:
-• <code>/start</code> - Start
-• <code>/cmds</code> - Commands
-• <code>/pp [card]</code> - PayPal single
-• <code>/st [card]</code> - Stripe single
-• <code>/sq [card]</code> - Square single
-• <code>/stop</code> - Stop mass
-• <code>/code [key]</code> - Activate VIP
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"""
-    await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
-
-async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
-        now = time.time()
-        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
-            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
-            return
-        last_check_time[user_id] = now
-    if not context.args:
-        await update.message.reply_text(premium_emoji("💡 Usage: <code>/pp [card]</code>"), parse_mode="HTML")
-        return
-    card_full = " ".join(context.args)
-    gateway_num = 0
-    gateway_url = None
-    if GATEWAYS:
-        gateway_num = (gateway_index % len(GATEWAYS)) + 1
-        gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
-    status, response = await check_card_api(card_full, gateway_url)
-    text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
-    await update.message.reply_text(text, parse_mode="HTML")
-
-async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    stop_users[user_id] = True
-    await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
-
-async def try_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        user_id = int(context.args[0])
-        reply_text = " ".join(context.args[1:])
-        await context.bot.send_message(chat_id=user_id, text=premium_emoji(reply_text), parse_mode="HTML")
-    except: pass
-
-async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    broadcast_msg = " ".join(context.args)
-    for user_id in list(ALL_USERS):
-        try:
-            await context.bot.send_message(chat_id=user_id, text=premium_emoji(f"📢 {broadcast_msg}"), parse_mode="HTML")
-            await asyncio.sleep(0.05)
-        except: continue
-
-async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    if not context.args: return
-    code = context.args[0].upper()
-    if code not in CODES: return
-    code_data = CODES[code]
-    if code_data["used"] >= code_data["max_users"]: return
-    VIP_USERS[user_id] = int(time.time()) + code_data["duration"] * 86400
-    code_data["used"] += 1
-    await update.message.reply_text(premium_emoji(f"🚀 VIP activated for {code_data['duration']} days."), parse_mode="HTML")
-
-async def wafa_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        duration, max_users = int(context.args[0]), int(context.args[1])
-        code = "WAFA-" + "-".join("".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3))
-        CODES[code] = {"duration": duration, "max_users": max_users, "used": 0, "created": time.time()}
-        await update.message.reply_text(premium_emoji(f"💰 Code: <code>{code}</code>"), parse_mode="HTML")
-    except: pass
-
-async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    msg = "📊 Users:\n\n"
-    for uid in ALL_USERS:
-        status = "BANNED" if uid in BANNED_USERS else "VIP" if uid in VIP_USERS else "NORMAL"
-        msg += f"• <code>{uid}</code> - <b>{status}</b>\n"
-    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
-
-async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    if not GATEWAYS:
-        await update.message.reply_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
-        return
-    msg = "🌐 Gateways:\n\n"
-    for i, gateway in enumerate(GATEWAYS, 1):
-        msg += f"{i}. <code>{gateway}</code>\n"
-    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
-
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    BANNED_USERS[int(context.args[0])] = True
-    await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
-
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    BANNED_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
-
-async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    url = context.args[0]
-    if url not in GATEWAYS:
-        GATEWAYS.append(url)
-        await update.message.reply_text(premium_emoji(f"✅ Gateway #{len(GATEWAYS)} added."), parse_mode="HTML")
-
-async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    if GATEWAYS:
-        GATEWAYS.pop()
-        await update.message.reply_text(premium_emoji("🗑 Removed."), parse_mode="HTML")
-
-async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
-    await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
-
-async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    VIP_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
-
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    await update.message.reply_text(premium_emoji("""🦅 PAYPAL ⚡
-Welcome Operator! System is fully primed.
-• <code>/cmds</code> - Commands
-• Drop combo files for mass loops."""), parse_mode="HTML")
-
 async def error_handler(update, context):
     pass
 
@@ -1159,6 +1405,19 @@ def main():
     app.add_handler(CommandHandler("st", st_check))
     app.add_handler(CommandHandler("sq", sq_check))
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file_panel))
+    app.add_handler(CallbackQueryHandler(free_cmds_callback, pattern="^free_cmds$"))
+    app.add_handler(CallbackQueryHandler(vip_cmds_callback, pattern="^vip_cmds$"))
+    app.add_handler(CallbackQueryHandler(admin_cmds_callback, pattern="^admin_cmds$"))
+    app.add_handler(CallbackQueryHandler(check_panel_callback, pattern="^check_panel$"))
+    app.add_handler(CallbackQueryHandler(check_paypal_callback, pattern="^check_paypal$"))
+    app.add_handler(CallbackQueryHandler(check_stripe_callback, pattern="^check_stripe$"))
+    app.add_handler(CallbackQueryHandler(check_square_callback, pattern="^check_square$"))
+    app.add_handler(CallbackQueryHandler(stats_panel_callback, pattern="^stats_panel$"))
+    app.add_handler(CallbackQueryHandler(back_to_start_callback, pattern="^back_to_start$"))
+    app.add_handler(CallbackQueryHandler(gate_info_callback, pattern="^gate_info_"))
+    app.add_handler(CallbackQueryHandler(gate_remove_callback, pattern="^gate_remove_"))
+    app.add_handler(CallbackQueryHandler(back_to_gateways_callback, pattern="^back_to_gateways$"))
+    app.add_handler(CallbackQueryHandler(close_gateways_callback, pattern="^close_gateways$"))
     app.add_handler(CallbackQueryHandler(gateway_callback, pattern="^gateway_"))
     app.run_polling()
 
