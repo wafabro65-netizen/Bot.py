@@ -447,7 +447,7 @@ class PayPalLinkTester:
             return "INSUFFICIENT_FUNDS"
         
         if 'order_not_approved' in text_lower:
-            return "ORDER_NOT_APPROVED"
+    return "Payer cannot pay for this transaction."
         
         if 'expired_card' in text_lower or 'expired_credit_card' in text_lower:
             return "EXPIRED_CARD"
