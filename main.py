@@ -191,7 +191,7 @@ class PayPalLinkTester:
                         timeout=15
                     )
                     
-                    # جديد: ننضف الرد من confirm فورًا
+                    # ننضف الرد من confirm فورًا
                     clean = self._clean_response(confirm_res.text)
                     if clean and clean != "DECLINED":
                         return clean
@@ -444,10 +444,38 @@ class PayPalLinkTester:
         if '<!DOCTYPE' in text_upper or '<html' in text_upper:
             return "DECLINED"
         
-        if 'true' in text_lower or 'charge 1' in text_lower or 'charge $' in text_lower or 'charged' in text_lower or 'completed' in text_lower or 'approved' in text_lower or 'success' in text_lower:
-            if 'error' not in text_lower and 'expecting' not in text_lower and 'invalid' not in text_lower:
-                return "CHARGE 1.0"
+        # نحاول نقرأ JSON
+        try:
+            json_data = json.loads(text)
+            if isinstance(json_data, dict):
+                # check data.status
+                if 'data' in json_data and isinstance(json_data['data'], dict):
+                    if 'status' in json_data['data']:
+                        status_val = str(json_data['data']['status']).upper()
+                        if status_val == 'COMPLETED':
+                            return "CHARGE 1.0"
+                    if 'success' in json_data['data']:
+                        if json_data['data']['success'] == True or str(json_data['data']['success']).lower() == 'true':
+                            return "CHARGE 1.0"
+                
+                # check status
+                if 'status' in json_data:
+                    status_val = str(json_data['status']).upper()
+                    if status_val == 'COMPLETED':
+                        return "CHARGE 1.0"
+                
+                # check success
+                if 'success' in json_data:
+                    if json_data['success'] == True or str(json_data['success']).lower() == 'true':
+                        return "CHARGE 1.0"
+        except:
+            pass
         
+        # لو النص "true" صريح
+        if text_lower.strip() == 'true':
+            return "CHARGE 1.0"
+        
+        # رسائل محددة
         if 'insufficient' in text_lower:
             return "INSUFFICIENT_FUNDS"
         
@@ -652,7 +680,7 @@ async def check_card_api(card_full, gateway_url):
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw).lower()
             
-            if "true" in result or "charge 1" in result or "charge $" in result or "charged" in result:
+            if "charge 1.0" in result or "charge $" in result:
                 return "approved", result_raw
             elif "insufficient" in result:
                 return "live", result_raw
