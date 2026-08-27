@@ -106,12 +106,25 @@ async def get_bin_info(bin_number):
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
 
-# ===================== PAYPAL COMMERCE CLASS (FINAL V4) =====================
+# ===================== PAYPAL COMMERCE CLASS (FINAL V5) =====================
 
 class PayPalCommerce:
     def __init__(self, target_url):
-        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles"]
-        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez"]
+        self.first_name = [
+            "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles",
+            "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua",
+            "Kevin", "Brian", "Edward", "George", "Ronald", "Teresa", "Mary", "Patricia", "Jennifer", "Linda",
+            "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret",
+            "Sandra", "Ashley", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda", "Dorothy", "Melissa",
+            "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia", "Kathleen", "Amy", "Angela", "Shirley"
+        ]
+        self.last_name = [
+            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
+            "Morgan", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Thompson",
+            "White", "Harris", "Clark", "Lewis", "Walker", "Rath", "Hall", "Allen", "Young", "Hernandez",
+            "King", "Wright", "Lopez", "Hill", "Scott", "Green", "Adams", "Baker", "Gonzalez", "Nelson",
+            "Carter", "Mitchell", "Perez", "Roberts", "Turner", "Phillips", "Campbell", "Parker", "Evans", "Edwards"
+        ]
         self.donation = "1.00"
         self.minimum_amount = "1.00"
         self.currency = "USD"
@@ -571,6 +584,9 @@ class PayPalCommerce:
         text_strip = text.strip()
         text_lower = text_strip.lower()
         
+        if not text_strip:
+            return False
+        
         if text_strip in self.first_name or text_strip in self.last_name:
             return True
         
@@ -578,15 +594,21 @@ class PayPalCommerce:
             for ln in self.last_name:
                 if text_strip == f"{fn} {ln}":
                     return True
-                if f"{fn} {ln}" in text_strip and len(text_strip) < 50:
+                if text_strip.startswith(f"{fn} {ln}"):
                     return True
         
-        paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay', 'donate']
-        
-        if len(text_strip) < 100:
+        if len(text_strip) < 50:
+            paypal_keywords = ['error', 'declined', 'insufficient', 'approved', 'charge', 'true', 'invalid', 'amount', 'order', 'payer', 'card', 'payment', 'issue', 'name', 'message', 'details', 'description', 'minimum', 'donation', 'address', 'city', 'state', 'zip', 'phone', 'title', 'prefix', 'create', 'failed', 'action', 'required', 'cannot', 'pay', 'donate', 'euro', 'usd', 'dollar', '€', '$', '_', ':', '{', '}', '[', ']']
             has_keyword = any(k in text_lower for k in paypal_keywords)
+            
             if not has_keyword:
-                return True
+                words = text_strip.split()
+                if len(words) == 2:
+                    if words[0][0].isupper() and words[1][0].isupper():
+                        return True
+                elif len(words) == 1:
+                    if words[0][0].isupper() and len(words[0]) > 1:
+                        return True
         
         return False
 
@@ -719,9 +741,15 @@ class PayPalCommerce:
                 text_lower = text.lower()
                 text_strip = text.strip()
                 
+                # فلترة الاسم أولاً
+                if self._is_name_response(text):
+                    return "PAYER_ACTION_REQUIRED"
+                
+                # CHARGE حقيقي فقط
                 if text_strip.lower() == 'true':
                     return 'CHARGE 1.0'
                 
+                # لو في capture status COMPLETED
                 try:
                     approve_json = approve_res.json()
                     if isinstance(approve_json, dict):
@@ -748,9 +776,6 @@ class PayPalCommerce:
                 
                 if 'order_not_approved' in text_lower:
                     return "Payer cannot pay for this transaction."
-                
-                if self._is_name_response(text):
-                    return "PAYER_ACTION_REQUIRED"
                 
                 try:
                     approve_json = approve_res.json()
