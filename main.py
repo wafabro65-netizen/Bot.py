@@ -490,40 +490,41 @@ class PayPalCommerce:
         text_strip = text.strip()
         text_lower = text_strip.lower()
 
-        # CHARGE حقيقي فقط
+        # CHARGE حقيقي - النص حرفياً true (من givewp approve)
         if text_lower == 'true':
             return 'CHARGE 1.0'
 
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
-                if 'status' in approve_json:
-                    if str(approve_json['status']).upper() == 'COMPLETED':
-                        return 'CHARGE 1.0'
-                if 'purchase_units' in approve_json:
-                    for unit in approve_json['purchase_units']:
-                        if 'payments' in unit and 'captures' in unit['payments']:
-                            for capture in unit['payments']['captures']:
-                                if capture.get('status', '').upper() == 'COMPLETED':
-                                    return 'CHARGE 1.0'
-                if 'data' in approve_json and isinstance(approve_json['data'], dict):
-                    if 'status' in approve_json['data']:
-                        if str(approve_json['data']['status']).upper() == 'COMPLETED':
-                            return 'CHARGE 1.0'
+                # CHARGE حقيقي بالشكل المطلوب:
+                # success: true + data.order.status: COMPLETED + payment_source.card موجود
+                if approve_json.get('success') is True:
+                    data = approve_json.get('data', {})
+                    if isinstance(data, dict):
+                        order = data.get('order', {})
+                        if isinstance(order, dict):
+                            order_status = str(order.get('status', '')).upper()
+                            payment_source = order.get('payment_source', {})
+                            card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
+                            
+                            if order_status == 'COMPLETED' and card:
+                                return 'CHARGE 1.0'
         except:
             pass
 
-        # LIVE
+        # LIVE - أموال غير كافية
         if 'insufficient' in text_lower:
             return 'INSUFFICIENT_FUNDS'
 
-        # PayPal responses
+        # البحث عن أي رد PayPal معروف
         for pr in self.paypal_responses:
             if pr in text_strip.upper():
                 if pr == 'ORDER_NOT_APPROVED':
                     return "Payer cannot pay for this transaction."
                 return pr
 
+        # لو النص قصير ومش رد PayPal
         if len(text_strip) < 100:
             return "PAYER_ACTION_REQUIRED"
 
