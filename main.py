@@ -24,7 +24,7 @@ VIP_USERS = {}
 BANNED_USERS = {}
 ALL_USERS = set()
 GATEWAYS = []
-FREE_CHATS = set()  # الشاتات اللي فيها فحص مجاني
+FREE_CHATS = set()
 stop_users = {}
 last_check_time = {}
 ANTI_SPAM_SECONDS = 7
@@ -47,7 +47,7 @@ PREMIUM_EMOJI_IDS = {
     "📌": "6037597564218384009",
     "🤖": "6039619012051082706",
     "🔥": "5206607081334906820",
-    # === تفاعلات جديدة من اللي ابعتهالك ===
+    # === تفاعلات جديدة ===
     "⚠️": "5420323339723881652",
     "🌐": "5447410659077661506",
     "▶️": "5264919878082509254",
@@ -60,7 +60,7 @@ PREMIUM_EMOJI_IDS = {
     "😂": "5352615886131831104",
     "⚙": "5929098607192969118",
     "⚪": "5933844889652432294",
-    # === الباقي ===
+    # === باقي التفاعلات ===
     "🚀": "5195033767969839232",
     "💎": "6039601162167000043",
     "⭐": "6034999602925542852",
@@ -1172,6 +1172,7 @@ async def close_chats_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     await query.delete_message()
 
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
@@ -1194,20 +1195,18 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
     
-    # Hit notification
-    global hit_counter
+    # Hit notification فقط للـ approved أو live
     if status == "approved" or status == "live":
         hit_counter += 1
         if FREE_CHATS:
             username = update.effective_user.username or "No Username"
             status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
-            emoji_fire = "🔥" if status == "approved" else "💵"
             for free_chat_id in FREE_CHATS:
                 hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
-{emoji_fire} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
@@ -1370,7 +1369,7 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{response}</code>
-{status_text}
+⚡ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1402,7 +1401,7 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-{status_text}
+⚡ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1431,7 +1430,7 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-{status_text}
+⚡ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1462,7 +1461,7 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{message}</code>
-{status_text}
+⚡ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1475,6 +1474,7 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 # ═══════════════════════ أوامر الفحص ═══════════════════════
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
@@ -1496,21 +1496,21 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_auth_response(card, result_dict, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
     
-    global hit_counter
+    # Hit notification للـ approved أو live فقط
     status = result_dict.get('status', 'declined')
     if status == "approved" or status == "live":
         hit_counter += 1
         if FREE_CHATS:
             username = update.effective_user.username or "No Username"
             status_text = "🔥 Approved" if status == "approved" else "💵 Live"
-            emoji_fire = "🔥" if status == "approved" else "💵"
+            message = result_dict.get('message', '')
             for free_chat_id in FREE_CHATS:
                 hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
-{emoji_fire} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
-⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{result_dict.get('message', '')}</code>
+⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{message}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: Auth
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
@@ -1570,7 +1570,6 @@ def can_user_check(user_id, chat_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
     if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
-    # لو في شات مجاني
     if chat_id in FREE_CHATS: return True
     return mode == "single"
 
@@ -1656,13 +1655,12 @@ async def process_paypal_file(file_path, chat_id, context):
                 # Hit notification
                 hit_counter += 1
                 if FREE_CHATS:
-                    username = "Unknown"
                     for free_chat_id in FREE_CHATS:
                         hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @{username}
-🔥 𝐒𝐭𝐚𝐭𝐮𝐬: Charge
+⚡ 𝐔𝐬𝐞𝐫: @Unknown
+⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 🔥 Charge
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
@@ -1678,13 +1676,12 @@ async def process_paypal_file(file_path, chat_id, context):
                 # Hit notification
                 hit_counter += 1
                 if FREE_CHATS:
-                    username = "Unknown"
                     for free_chat_id in FREE_CHATS:
                         hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @{username}
-💵 𝐒𝐭𝐚𝐭𝐮𝐬: Insufficient Funds
+⚡ 𝐔𝐬𝐞𝐫: @Unknown
+⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 💵 Insufficient Funds
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
@@ -1784,8 +1781,7 @@ async def process_square_file(file_path, chat_id, context):
     user_id = chat_id
     stop_users[user_id] = False
     try:
-        approved = live = declined = 0
-        card_counter = 0
+        approved = live = declined = 0        card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Square Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
         with open(file_path, 'r', encoding='utf-8') as f:
