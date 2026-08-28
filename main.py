@@ -42,10 +42,12 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
+    # === تفاعلات الهيت ===
     "⚡": "6037229996622225123",
     "📌": "6037597564218384009",
     "🤖": "6039619012051082706",
     "🔥": "5206607081334906820",
+    # === تفاعلات الردود ===
     "💳": "5445353829304387411",
     "💵": "5197434882321567830",
     "❌": "6039615816595414817",
@@ -54,6 +56,10 @@ PREMIUM_EMOJI_IDS = {
     "🌐": "5447410659077661506",
     "👤": "6041709716231429926",
     "🛡": "6039615816595414817",
+    # === تفاعلات جديدة ===
+    "👑": "6041702032534936873",
+    "🔗": "5933844889652432294",
+    "📊": "5231200819986047254",
     "🚀": "5195033767969839232",
     "💎": "6039601162167000043",
     "✅": "6034891730526935918",
@@ -904,6 +910,8 @@ def check_auth_sync(card):
         except:
             pass
 
+# ═══════════════════════ لوحة الأزرار ═══════════════════════
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -989,6 +997,8 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
     ]
     await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
+# ═══════════════════════ لوحة البوابات ═══════════════════════
+
 async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         return
@@ -1047,6 +1057,8 @@ async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
     await query.delete_message()
+
+# ═══════════════════════ أوامر ═══════════════════════
 
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """👑 ADMIN:
@@ -1251,21 +1263,26 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
 
+# ═══════════════════════ دوال التنسيق ═══════════════════════
+
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
     if status == "approved":
-        status_text = "🔥 Charge"
+        status_emoji = "🔥"
+        status_text = "Charge"
     elif status == "live":
-        status_text = "💵 Insufficient Funds"
+        status_emoji = "💵"
+        status_text = "Insufficient Funds"
     else:
-        status_text = "❌ Declined"
+        status_emoji = "❌"
+        status_text = "Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
-        gateway_info = f"\n⚡ Gate #{gateway_num}: <code>{gateway_url}</code>" if gateway_url else ""
+        gateway_info = f"\n🔗 Gate #{gateway_num}: <code>{gateway_url}</code>" if gateway_url else ""
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
-        gateway_info = f"\n⚡ Gate #{gateway_num}" if gateway_num else ""
+        gateway_info = f"\n🔗 Gate #{gateway_num}" if gateway_num else ""
     else:
         user_status = "Free User 🤖"
         gateway_info = ""
@@ -1273,7 +1290,7 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{response}</code>
-❌ Status: {status_text}
+{status_emoji} Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1288,13 +1305,17 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
     info, bank, country = await get_bin_info(bin_number)
     result_upper = str(result).upper()
     if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
-        status_text = "🔥 Charge $1"
+        status_emoji = "🔥"
+        status_text = "Charge $1"
     elif "INSUFFICIENT" in result_upper:
-        status_text = "💵 Insufficient Funds"
+        status_emoji = "💵"
+        status_text = "Insufficient Funds"
     elif "LIVE" in result_upper:
-        status_text = "💵 Live"
+        status_emoji = "💵"
+        status_text = "Live"
     else:
-        status_text = "❌ Declined"
+        status_emoji = "❌"
+        status_text = "Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
@@ -1305,7 +1326,7 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-❌ Status: {status_text}
+{status_emoji} Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1319,11 +1340,14 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
     if "CHARGE" in result:
-        status_text = "🔥 Charge"
+        status_emoji = "🔥"
+        status_text = "Charge"
     elif "LIVE" in result:
-        status_text = "💵 Insufficient Funds"
+        status_emoji = "💵"
+        status_text = "Insufficient Funds"
     else:
-        status_text = "❌ Declined"
+        status_emoji = "❌"
+        status_text = "Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
@@ -1334,7 +1358,7 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-❌ Status: {status_text}
+{status_emoji} Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1350,11 +1374,14 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
     status = result_dict.get('status', 'declined')
     message = result_dict.get('message', '')
     if status == "approved":
-        status_text = "🔥 Approved"
+        status_emoji = "🔥"
+        status_text = "Approved"
     elif status == "live":
-        status_text = "💵 Live"
+        status_emoji = "💵"
+        status_text = "Live"
     else:
-        status_text = "❌ Declined"
+        status_emoji = "❌"
+        status_text = "Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
@@ -1365,7 +1392,7 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{message}</code>
-❌ Status: {status_text}
+{status_emoji} Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1374,6 +1401,8 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
+
+# ═══════════════════════ أوامر الفحص ═══════════════════════
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
@@ -1512,6 +1541,8 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
     user_tasks[user_id] = task
     del pending_files[user_id]
+
+# ═══════════════════════ Process Files ═══════════════════════
 
 async def process_paypal_file(file_path, chat_id, context):
     global gateway_index, hit_counter
