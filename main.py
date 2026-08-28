@@ -17,13 +17,14 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from datetime import datetime
 
-TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
+TOKEN = '7707742168:AAFv6SFEztGlej6seuKm6v9HZScmNjP3PEA'
 
 ADMINS = [6843321125]
 VIP_USERS = {}
 BANNED_USERS = {}
 ALL_USERS = set()
 GATEWAYS = []
+FREE_CHATS = set()  # الشاتات اللي فيها فحص مجاني
 stop_users = {}
 last_check_time = {}
 ANTI_SPAM_SECONDS = 7
@@ -32,6 +33,7 @@ CODES = {}
 gateway_index = 0
 STRIPE_KEYS = {}
 pending_files = {}
+hit_counter = 0
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -40,17 +42,42 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    "🚀": "5195033767969839232", "🤖": "6039619012051082706",
-    "💎": "6039601162167000043", "⭐": "6034999602925542852",
-    "✅": "6034891730526935918", "❌": "6039615816595414817",
-    "📌": "6039389463228981149", "👥": "6046639187636003094",
-    "👤": "6041709716231429926", "🦾": "6042051651462766312",
-    "⚡": "6037229996622225123", "🌟": "5956369596528204273",
-    "💲": "5929335569128623821", "🎺": "5929509352095354418",
-    "👁": "5976794472418121581", "💀": "5976323628038363401",
-    "💰": "4983539296163070766", "🛑": "6039615816595414817",
-    "🔥": "5424972470023104089", "🏦": "5332455502917949981",
-    "⏱": "5382194935057372936", "💳": "5445353829304387411",
+    # === تفاعلات الهيت (ممنوع تغييرها) ===
+    "⚡": "6037229996622225123",
+    "📌": "6037597564218384009",
+    "🤖": "6039619012051082706",
+    "🔥": "5206607081334906820",
+    # === تفاعلات جديدة من اللي ابعتهالك ===
+    "⚠️": "5420323339723881652",
+    "🌐": "5447410659077661506",
+    "▶️": "5264919878082509254",
+    "🚫": "5240241223632954241",
+    "🔈": "5388632425314140043",
+    "🎉": "6039789659691688114",
+    "💵": "5197434882321567830",
+    "😊": "6150116924165461974",
+    "💰": "6125337376639161874",
+    "😂": "5352615886131831104",
+    "⚙": "5929098607192969118",
+    "⚪": "5933844889652432294",
+    # === الباقي ===
+    "🚀": "5195033767969839232",
+    "💎": "6039601162167000043",
+    "⭐": "6034999602925542852",
+    "✅": "6034891730526935918",
+    "❌": "6039615816595414817",
+    "👥": "6046639187636003094",
+    "👤": "6041709716231429926",
+    "🦾": "6042051651462766312",
+    "🌟": "5956369596528204273",
+    "💲": "5929335569128623821",
+    "🎺": "5929509352095354418",
+    "👁": "5976794472418121581",
+    "💀": "5976323628038363401",
+    "🛑": "6039615816595414817",
+    "🏦": "5332455502917949981",
+    "⏱": "5382194935057372936",
+    "💳": "5445353829304387411",
 }
 
 def premium_emoji(text):
@@ -907,7 +934,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
         [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
     ]
-    await update.message.reply_text(premium_emoji(f"🔥 Welcome! @{username} 🔥\n- - - - - - - - - - - - - - - - - - - - - -\n🔥 Bot Status: Online 🚀"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await update.message.reply_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -929,7 +956,7 @@ async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("Admin only!", show_alert=True)
         return
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /setchat [id] - Set free chat\n• /showchat - Show free chats\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -967,7 +994,7 @@ async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}\n💬 Free Chats: {len(FREE_CHATS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -980,7 +1007,7 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
         [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
     ]
-    await query.edit_message_text(premium_emoji(f"🔥 Welcome! @{username} 🔥\n- - - - - - - - - - - - - - - - - - - - - -\n🔥 Bot Status: Online 🚀"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 # ═══════════════════════ لوحة البوابات ═══════════════════════
 
@@ -1046,10 +1073,12 @@ async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_
 # ═══════════════════════ أوامر ═══════════════════════
 
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    commands_text = """🤵 ADMIN:
+    commands_text = """👑 ADMIN:
 • /add [url] - Add PayPal gateway
 • /rmadd [num] - Remove gateway
 • /show_gateways - Show gateways
+• /setchat [id] - Set free chat
+• /showchat - Show free chats
 • /ban_user [id] - Ban user
 • /unban_user [id] - Unban user
 • /prm [id] [days] - Add VIP
@@ -1078,8 +1107,73 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
+async def setchat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        chat_id = int(context.args[0])
+        FREE_CHATS.add(chat_id)
+        await update.message.reply_text(premium_emoji(f"✅ Chat added: <code>{chat_id}</code>"), parse_mode="HTML")
+    except:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/setchat [chat_id]</code>"), parse_mode="HTML")
+
+async def showchat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    if not FREE_CHATS:
+        await update.message.reply_text(premium_emoji("❌ No free chats."), parse_mode="HTML")
+        return
+    keyboard = []
+    for chat_id in FREE_CHATS:
+        keyboard.append([InlineKeyboardButton(f"💬 Chat: {chat_id}", callback_data=f"chat_info_{chat_id}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
+    await update.message.reply_text(premium_emoji(f"💬 <b>Free Chats ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def chat_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS: return
+    chat_id = int(query.data.split("_")[2])
+    if chat_id in FREE_CHATS:
+        keyboard = [
+            [InlineKeyboardButton("🗑 Remove", callback_data=f"chat_remove_{chat_id}")],
+            [InlineKeyboardButton("🔙 Back", callback_data="back_to_chats")],
+        ]
+        await query.edit_message_text(premium_emoji(f"💬 <b>Chat:</b> <code>{chat_id}</code>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def chat_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS: return
+    chat_id = int(query.data.split("_")[2])
+    if chat_id in FREE_CHATS:
+        FREE_CHATS.discard(chat_id)
+        keyboard = []
+        for cid in FREE_CHATS:
+            keyboard.append([InlineKeyboardButton(f"💬 Chat: {cid}", callback_data=f"chat_info_{cid}")])
+        keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
+        await query.edit_message_text(premium_emoji(f"🗑 Chat removed!\n\n💬 <b>Remaining ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def back_to_chats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not FREE_CHATS:
+        await query.edit_message_text(premium_emoji("❌ No free chats."), parse_mode="HTML")
+        return
+    keyboard = []
+    for chat_id in FREE_CHATS:
+        keyboard.append([InlineKeyboardButton(f"💬 Chat: {chat_id}", callback_data=f"chat_info_{chat_id}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
+    await query.edit_message_text(premium_emoji(f"💬 <b>Free Chats ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def close_chats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.delete_message()
+
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1099,6 +1193,29 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status, response = await check_card_api(card_full, gateway_url)
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
+    
+    # Hit notification
+    global hit_counter
+    if status == "approved" or status == "live":
+        hit_counter += 1
+        if FREE_CHATS:
+            username = update.effective_user.username or "No Username"
+            status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
+            emoji_fire = "🔥" if status == "approved" else "💵"
+            for free_chat_id in FREE_CHATS:
+                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+- - - - - - - - - - - - - - - - - - - - - -
+⚡ 𝐔𝐬𝐞𝐫: @{username}
+{emoji_fire} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+- - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1"""
+                try:
+                    await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
+                except:
+                    pass
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1235,94 +1352,94 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
     if status == "approved":
-        status_text = "Approved / Charge 🔥💎"
+        status_text = "🔥 Charge"
     elif status == "live":
-        status_text = "Live / Insufficient Funds ✅✨"
+        status_text = "💵 Insufficient Funds"
     else:
-        status_text = "Declined / Error ❌"
+        status_text = "❌ Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
-        gateway_info = f"\n[🔗] Gate #{gateway_num}: <code>{gateway_url}</code>" if gateway_url else ""
+        gateway_info = f"\n⚡ Gate #{gateway_num}: <code>{gateway_url}</code>" if gateway_url else ""
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
-        gateway_info = f"\n[🔗] Gate #{gateway_num}" if gateway_num else ""
+        gateway_info = f"\n⚡ Gate #{gateway_num}" if gateway_num else ""
     else:
         user_status = "Free User 🤖"
         gateway_info = ""
-    return premium_emoji(f"""#PayPal [{mode}] 🌟
+    return premium_emoji(f"""💳 #PayPal [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Card: <code>{card_full}</code>
-[ϟ] Response: <code>{response}</code>
-[ϟ] Status: {status_text}
-[ϟ] Taken: <code>{taken}s</code>
+💳 Card: <code>{card_full}</code>
+⚡ Response: <code>{response}</code>
+{status_text}
+⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Info: <code>{info}</code>
-[ϟ] Bank: <code>{bank}</code>
-[ϟ] Country: <code>{country}</code>
-[⎇] Req By: <code>{user_id}</code> ({user_status}){gateway_info}
+📌 Info: <code>{info}</code>
+🏦 Bank: <code>{bank}</code>
+🌐 Country: <code>{country}</code>
+👤 Req By: <code>{user_id}</code> ({user_status}){gateway_info}
 - - - - - - - - - - - - - - - - - - - - - -
-[⌤] Dev by: WAFA 🍀""")
+🤖 checker v1""")
 
 async def format_stripe_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
     result_upper = str(result).upper()
     if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
-        status_text = "Approved / Charge $1 🔥💎"
+        status_text = "🔥 Charge $1"
     elif "INSUFFICIENT" in result_upper:
-        status_text = "Live / Insufficient Funds ✅✨"
+        status_text = "💵 Insufficient Funds"
     elif "LIVE" in result_upper:
-        status_text = "Live ✅✨"
+        status_text = "💵 Live"
     else:
-        status_text = "Declined ❌"
+        status_text = "❌ Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
     else:
         user_status = "Free User 🤖"
-    return premium_emoji(f"""#Stripe [{mode}] 🌟
+    return premium_emoji(f"""💳 #Stripe [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Card: <code>{card_full}</code>
-[ϟ] Response: <code>{result}</code>
-[ϟ] Status: {status_text}
-[ϟ] Taken: <code>{taken}s</code>
+💳 Card: <code>{card_full}</code>
+⚡ Response: <code>{result}</code>
+{status_text}
+⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Info: <code>{info}</code>
-[ϟ] Bank: <code>{bank}</code>
-[ϟ] Country: <code>{country}</code>
-[⎇] Req By: <code>{user_id}</code> ({user_status})
+📌 Info: <code>{info}</code>
+🏦 Bank: <code>{bank}</code>
+🌐 Country: <code>{country}</code>
+👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
-[⌤] Dev by: WAFA 🍀""")
+🤖 checker v1""")
 
 async def format_square_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
     if "CHARGE" in result:
-        status_text = "Approved / Charge 🔥💎"
+        status_text = "🔥 Charge"
     elif "LIVE" in result:
-        status_text = "Live / Insufficient Funds ✅✨"
+        status_text = "💵 Insufficient Funds"
     else:
-        status_text = "Declined / Error ❌"
+        status_text = "❌ Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
     else:
         user_status = "Free User 🤖"
-    return premium_emoji(f"""#Square [{mode}] 🌟
+    return premium_emoji(f"""💳 #Square [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Card: <code>{card_full}</code>
-[ϟ] Response: <code>{result}</code>
-[ϟ] Status: {status_text}
-[ϟ] Taken: <code>{taken}s</code>
+💳 Card: <code>{card_full}</code>
+⚡ Response: <code>{result}</code>
+{status_text}
+⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Info: <code>{info}</code>
-[ϟ] Bank: <code>{bank}</code>
-[ϟ] Country: <code>{country}</code>
-[⎇] Req By: <code>{user_id}</code> ({user_status})
+📌 Info: <code>{info}</code>
+🏦 Bank: <code>{bank}</code>
+🌐 Country: <code>{country}</code>
+👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
-[⌤] Dev by: WAFA 🍀""")
+🤖 checker v1""")
 
 async def format_auth_response(card_full, result_dict, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
@@ -1330,35 +1447,36 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
     status = result_dict.get('status', 'declined')
     message = result_dict.get('message', '')
     if status == "approved":
-        status_text = "Approved 🔥💎"
+        status_text = "🔥 Approved"
     elif status == "live":
-        status_text = "Live ✅✨"
+        status_text = "💵 Live"
     else:
-        status_text = "Declined ❌"
+        status_text = "❌ Declined"
     if user_id in ADMINS:
         user_status = "Admin 👑"
     elif user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
         user_status = "Premium 💎"
     else:
         user_status = "Free User 🤖"
-    return premium_emoji(f"""#Auth $0 [{mode}] 🌟
+    return premium_emoji(f"""🛡 #Auth $0 [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Card: <code>{card_full}</code>
-[ϟ] Response: <code>{message}</code>
-[ϟ] Status: {status_text}
-[ϟ] Taken: <code>{taken}s</code>
+💳 Card: <code>{card_full}</code>
+⚡ Response: <code>{message}</code>
+{status_text}
+⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-[ϟ] Info: <code>{info}</code>
-[ϟ] Bank: <code>{bank}</code>
-[ϟ] Country: <code>{country}</code>
-[⎇] Req By: <code>{user_id}</code> ({user_status})
+📌 Info: <code>{info}</code>
+🏦 Bank: <code>{bank}</code>
+🌐 Country: <code>{country}</code>
+👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
-[⌤] Dev by: WAFA 🍀""")
+🤖 checker v1""")
 
 # ═══════════════════════ أوامر الفحص ═══════════════════════
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1377,9 +1495,33 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     taken = round(time.time() - start_time, 2)
     text = await format_auth_response(card, result_dict, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
+    
+    global hit_counter
+    status = result_dict.get('status', 'declined')
+    if status == "approved" or status == "live":
+        hit_counter += 1
+        if FREE_CHATS:
+            username = update.effective_user.username or "No Username"
+            status_text = "🔥 Approved" if status == "approved" else "💵 Live"
+            emoji_fire = "🔥" if status == "approved" else "💵"
+            for free_chat_id in FREE_CHATS:
+                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+- - - - - - - - - - - - - - - - - - - - - -
+⚡ 𝐔𝐬𝐞𝐫: @{username}
+{emoji_fire} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{result_dict.get('message', '')}</code>
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: Auth
+- - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1"""
+                try:
+                    await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
+                except:
+                    pass
 
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1394,7 +1536,7 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(premium_emoji("💡 Usage: <code>/st [card]</code>"), parse_mode="HTML")
         return
     card = context.args[0]
-    msg = await update.message.reply_text(premium_emoji("🔄 Checking..."), parse_mode="HTML")
+    msg = await update.message.reply_text(premium_emoji("💳 Checking..."), parse_mode="HTML")
     start_time = time.time()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, check_stripe_sync, card)
@@ -1404,6 +1546,7 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1415,7 +1558,7 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(premium_emoji("💡 Usage: <code>/sq [card]</code>"), parse_mode="HTML")
         return
     card = context.args[0]
-    msg = await update.message.reply_text(premium_emoji("🔄 Checking Square..."), parse_mode="HTML")
+    msg = await update.message.reply_text(premium_emoji("💳 Checking Square..."), parse_mode="HTML")
     start_time = time.time()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, check_square_sync, card)
@@ -1423,24 +1566,27 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
 
-def can_user_check(user_id, mode="file"):
+def can_user_check(user_id, chat_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
     if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
+    # لو في شات مجاني
+    if chat_id in FREE_CHATS: return True
     return mode == "single"
 
 async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
+    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
-    if not can_user_check(user_id, "file"):
-        await update.message.reply_text(premium_emoji("❌ File arrays require Premium."), parse_mode="HTML")
+    if not can_user_check(user_id, chat_id, "file"):
+        await update.message.reply_text(premium_emoji("❌ File arrays require Premium or Free Chat."), parse_mode="HTML")
         return
     try:
         os.makedirs("downloads", exist_ok=True)
         file = await update.message.document.get_file()
         file_path = f"downloads/{file.file_id}.txt"
         await file.download_to_drive(file_path)
-        pending_files[user_id] = {"file_path": file_path, "chat_id": update.effective_chat.id}
+        pending_files[user_id] = {"file_path": file_path, "chat_id": chat_id}
         keyboard = [
             [InlineKeyboardButton("💳 PayPal Check", callback_data="gateway_paypal")],
             [InlineKeyboardButton("💳 Stripe Check", callback_data="gateway_stripe")],
@@ -1476,7 +1622,7 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ═══════════════════════ Process Files ═══════════════════════
 
 async def process_paypal_file(file_path, chat_id, context):
-    global gateway_index
+    global gateway_index, hit_counter
     user_id = chat_id
     stop_users[user_id] = False
     try:
@@ -1507,23 +1653,59 @@ async def process_paypal_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
+                # Hit notification
+                hit_counter += 1
+                if FREE_CHATS:
+                    username = "Unknown"
+                    for free_chat_id in FREE_CHATS:
+                        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+- - - - - - - - - - - - - - - - - - - - - -
+⚡ 𝐔𝐬𝐞𝐫: @{username}
+🔥 𝐒𝐭𝐚𝐭𝐮𝐬: Charge
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+- - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1"""
+                        try:
+                            await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
+                        except:
+                            pass
             elif status == "live":
                 live += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                # Hit notification
+                hit_counter += 1
+                if FREE_CHATS:
+                    username = "Unknown"
+                    for free_chat_id in FREE_CHATS:
+                        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+- - - - - - - - - - - - - - - - - - - - - -
+⚡ 𝐔𝐬𝐞𝐫: @{username}
+💵 𝐒𝐭𝐚𝐭𝐮𝐬: Insufficient Funds
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+- - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1"""
+                        try:
+                            await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
+                        except:
+                            pass
             else:
                 declined += 1
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ MASS PAYPAL ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-✅ Charge: <code>{approved}</code>
-✅ Live: <code>{live}</code>
+🔥 Charge: <code>{approved}</code>
+💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
 🌐 Gate: <code>{gateway_num}</code>
-📝 Response: <code>{response}</code>"""
+⚡ Response: <code>{response}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
@@ -1543,7 +1725,7 @@ async def process_stripe_file(file_path, chat_id, context):
     try:
         approved = live = declined = 0
         card_counter = 0
-        panel_msg = await context.bot.send_message(chat_id, premium_emoji("🔄 Stripe Checking..."), parse_mode="HTML")
+        panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Stripe Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -1580,14 +1762,14 @@ async def process_stripe_file(file_path, chat_id, context):
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ MASS STRIPE ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-✅ Charge: <code>{approved}</code>
-✅ Live: <code>{live}</code>
+🔥 Charge: <code>{approved}</code>
+💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
 🔑 Key: <code>{key_id}</code>
-📝 Result: <code>{result[:80]}</code>"""
+⚡ Result: <code>{result[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
@@ -1604,7 +1786,7 @@ async def process_square_file(file_path, chat_id, context):
     try:
         approved = live = declined = 0
         card_counter = 0
-        panel_msg = await context.bot.send_message(chat_id, premium_emoji("🔄 Square Checking..."), parse_mode="HTML")
+        panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Square Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
@@ -1634,13 +1816,13 @@ async def process_square_file(file_path, chat_id, context):
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ MASS SQUARE ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-✅ Charge: <code>{approved}</code>
-✅ Live: <code>{live}</code>
+🔥 Charge: <code>{approved}</code>
+💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
-📝 Result: <code>{result}</code>"""
+⚡ Result: <code>{result}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
@@ -1689,13 +1871,13 @@ async def process_auth_file(file_path, chat_id, context):
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ MASS AUTH ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
-✅ Approved: <code>{approved}</code>
-✅ Live: <code>{live}</code>
+🔥 Approved: <code>{approved}</code>
+💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
-📝 Result: <code>{message[:80]}</code>"""
+⚡ Result: <code>{message[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except: pass
@@ -1723,6 +1905,8 @@ def main():
     app.add_handler(CommandHandler("wafa", wafa_command))
     app.add_handler(CommandHandler("show_users", show_users))
     app.add_handler(CommandHandler("show_gateways", show_gateways))
+    app.add_handler(CommandHandler("setchat", setchat))
+    app.add_handler(CommandHandler("showchat", showchat))
     app.add_handler(CommandHandler("ban_user", ban_user))
     app.add_handler(CommandHandler("unban_user", unban_user))
     app.add_handler(CommandHandler("try", try_reply))
@@ -1751,6 +1935,10 @@ def main():
     app.add_handler(CallbackQueryHandler(back_to_gateways_callback, pattern="^back_to_gateways$"))
     app.add_handler(CallbackQueryHandler(close_gateways_callback, pattern="^close_gateways$"))
     app.add_handler(CallbackQueryHandler(gateway_callback, pattern="^gateway_"))
+    app.add_handler(CallbackQueryHandler(chat_info_callback, pattern="^chat_info_"))
+    app.add_handler(CallbackQueryHandler(chat_remove_callback, pattern="^chat_remove_"))
+    app.add_handler(CallbackQueryHandler(back_to_chats_callback, pattern="^back_to_chats$"))
+    app.add_handler(CallbackQueryHandler(close_chats_callback, pattern="^close_chats$"))
     app.run_polling()
 
 if __name__ == "__main__":
