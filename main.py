@@ -17,7 +17,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from datetime import datetime
 
-TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
+TOKEN = '7707742168:AAFv6SFEztGlej6seuKm6v9HZScmNjP3PEA'
 
 ADMINS = [6843321125]
 VIP_USERS = {}
