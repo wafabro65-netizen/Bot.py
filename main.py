@@ -1027,6 +1027,7 @@ async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     gate_num = int(query.data.split("_")[2])
     if 1 <= gate_num <= len(GATEWAYS):
         GATEWAYS.pop(gate_num - 1)
+        # إعادة ترقيم البوابات تلقائياً (بما إنها list فهرسها بيتحدث تلقائياً)
         keyboard = []
         for i, gateway in enumerate(GATEWAYS, 1):
             keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
@@ -1182,15 +1183,18 @@ async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
             idx = int(context.args[0])
             if 1 <= idx <= len(GATEWAYS):
                 GATEWAYS.pop(idx - 1)
-                await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!"), parse_mode="HTML")
+                # إعادة ترقيم تلقائياً
+                await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!\n\n📌 Remaining: {len(GATEWAYS)}"), parse_mode="HTML")
             else:
                 await update.message.reply_text(premium_emoji(f"❌ Gateway #{idx} not found!"), parse_mode="HTML")
         else:
             if GATEWAYS:
                 GATEWAYS.pop()
                 await update.message.reply_text(premium_emoji("🗑 Last gateway removed."), parse_mode="HTML")
-    except:
-        await update.message.reply_text(premium_emoji("💡 Usage: /rmadd [number]"), parse_mode="HTML")
+            else:
+                await update.message.reply_text(premium_emoji("❌ No gateways to remove."), parse_mode="HTML")
+    except Exception as e:
+        await update.message.reply_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
@@ -1223,9 +1227,17 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key_id = context.args[0]
     if key_id in STRIPE_KEYS:
         del STRIPE_KEYS[key_id]
+        # إعادة ترقيم المفاتيح
+        new_keys = {}
+        for i, (old_key, value) in enumerate(STRIPE_KEYS.items(), 1):
+            new_keys[str(i)] = value
+        STRIPE_KEYS.clear()
+        STRIPE_KEYS.update(new_keys)
         with open('stripe_keys.json', 'w') as f:
             json.dump(STRIPE_KEYS, f)
-        await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!"), parse_mode="HTML")
+        await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!\n\n📌 Remaining: {len(STRIPE_KEYS)}"), parse_mode="HTML")
+    else:
+        await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
 
 # ═══════════════════════ دوال التنسيق ═══════════════════════
 
