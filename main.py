@@ -1781,7 +1781,8 @@ async def process_square_file(file_path, chat_id, context):
     user_id = chat_id
     stop_users[user_id] = False
     try:
-        approved = live = declined = 0        card_counter = 0
+        approved = live = declined = 0
+        card_counter = 0  # ✅ صح
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Square Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
         with open(file_path, 'r', encoding='utf-8') as f:
