@@ -85,7 +85,7 @@ def premium_emoji(text):
     for emoji in sorted_emojis:
         if emoji in result:
             doc_id = PREMIUM_EMOJI_IDS[emoji]
-            result = result.replace(emoji, f'<tg-emoji emoji-id="{doc_id}">{emoji}</tg-emoji>', 1)
+            result = result.replace(emoji, f'<tg-emoji emoji-id="{doc_id}">{emoji}</tg-emoji>')
     return result
 
 UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
