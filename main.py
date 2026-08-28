@@ -24,7 +24,6 @@ VIP_USERS = {}
 BANNED_USERS = {}
 ALL_USERS = set()
 GATEWAYS = []
-FREE_CHATS = set()
 stop_users = {}
 last_check_time = {}
 ANTI_SPAM_SECONDS = 7
@@ -34,6 +33,7 @@ gateway_index = 0
 STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
+HIT_CHAT_ID = 1002429830194  # شات الهيت الثابت
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -42,42 +42,36 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    # === تفاعلات الهيت (ممنوع تغييرها) ===
+    # === تفاعلات الهيت ===
     "⚡": "6037229996622225123",
     "📌": "6037597564218384009",
     "🤖": "6039619012051082706",
     "🔥": "5206607081334906820",
-    # === تفاعلات جديدة ===
-    "⚠️": "5420323339723881652",
-    "🌐": "5447410659077661506",
-    "▶️": "5264919878082509254",
-    "🚫": "5240241223632954241",
-    "🔈": "5388632425314140043",
-    "🎉": "6039789659691688114",
+    # === تفاعلات الردود ===
+    "💳": "5445353829304387411",
     "💵": "5197434882321567830",
-    "😊": "6150116924165461974",
-    "💰": "6125337376639161874",
-    "😂": "5352615886131831104",
-    "⚙": "5929098607192969118",
-    "⚪": "5933844889652432294",
-    # === باقي التفاعلات ===
+    "❌": "6039615816595414817",
+    "⏱": "5382194935057372936",
+    "🏦": "5332455502917949981",
+    "🌐": "5447410659077661506",
+    "👤": "6041709716231429926",
+    "🛡": "6039615816595414817",
+    # === تفاعلات القوائم ===
     "🚀": "5195033767969839232",
     "💎": "6039601162167000043",
-    "⭐": "6034999602925542852",
     "✅": "6034891730526935918",
-    "❌": "6039615816595414817",
     "👥": "6046639187636003094",
-    "👤": "6041709716231429926",
     "🦾": "6042051651462766312",
     "🌟": "5956369596528204273",
-    "💲": "5929335569128623821",
+    "💰": "6125337376639161874",
+    "🎉": "6039789659691688114",
+    "🔈": "5388632425314140043",
+    "😂": "5352615886131831104",
+    "⭐": "6034999602925542852",
     "🎺": "5929509352095354418",
     "👁": "5976794472418121581",
     "💀": "5976323628038363401",
     "🛑": "6039615816595414817",
-    "🏦": "5332455502917949981",
-    "⏱": "5382194935057372936",
-    "💳": "5445353829304387411",
 }
 
 def premium_emoji(text):
@@ -86,8 +80,9 @@ def premium_emoji(text):
     result = text
     sorted_emojis = sorted(PREMIUM_EMOJI_IDS.keys(), key=len, reverse=True)
     for emoji in sorted_emojis:
-        doc_id = PREMIUM_EMOJI_IDS[emoji]
-        result = result.replace(emoji, f'<tg-emoji emoji-id="{doc_id}">{emoji}</tg-emoji>')
+        if emoji in result:
+            doc_id = PREMIUM_EMOJI_IDS[emoji]
+            result = result.replace(emoji, f'<tg-emoji emoji-id="{doc_id}">{emoji}</tg-emoji>', 1)
     return result
 
 UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
@@ -885,7 +880,7 @@ def check_square_sync(card):
     finally:
         session.close()
 
-# ═══════════════════════ Auth Check ═══════════════════════
+# ═══════════════════════ Auth Check (بدون Timeout) ═══════════════════════
 
 def check_auth_sync(card):
     try:
@@ -956,7 +951,7 @@ async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
         await query.answer("Admin only!", show_alert=True)
         return
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /setchat [id] - Set free chat\n• /showchat - Show free chats\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -994,7 +989,7 @@ async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}\n💬 Free Chats: {len(FREE_CHATS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1077,8 +1072,6 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /add [url] - Add PayPal gateway
 • /rmadd [num] - Remove gateway
 • /show_gateways - Show gateways
-• /setchat [id] - Set free chat
-• /showchat - Show free chats
 • /ban_user [id] - Ban user
 • /unban_user [id] - Unban user
 • /prm [id] [days] - Add VIP
@@ -1107,70 +1100,6 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
-async def setchat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        chat_id = int(context.args[0])
-        FREE_CHATS.add(chat_id)
-        await update.message.reply_text(premium_emoji(f"✅ Chat added: <code>{chat_id}</code>"), parse_mode="HTML")
-    except:
-        await update.message.reply_text(premium_emoji("💡 Usage: <code>/setchat [chat_id]</code>"), parse_mode="HTML")
-
-async def showchat(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    if not FREE_CHATS:
-        await update.message.reply_text(premium_emoji("❌ No free chats."), parse_mode="HTML")
-        return
-    keyboard = []
-    for chat_id in FREE_CHATS:
-        keyboard.append([InlineKeyboardButton(f"💬 Chat: {chat_id}", callback_data=f"chat_info_{chat_id}")])
-    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
-    await update.message.reply_text(premium_emoji(f"💬 <b>Free Chats ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def chat_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id not in ADMINS: return
-    chat_id = int(query.data.split("_")[2])
-    if chat_id in FREE_CHATS:
-        keyboard = [
-            [InlineKeyboardButton("🗑 Remove", callback_data=f"chat_remove_{chat_id}")],
-            [InlineKeyboardButton("🔙 Back", callback_data="back_to_chats")],
-        ]
-        await query.edit_message_text(premium_emoji(f"💬 <b>Chat:</b> <code>{chat_id}</code>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def chat_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id not in ADMINS: return
-    chat_id = int(query.data.split("_")[2])
-    if chat_id in FREE_CHATS:
-        FREE_CHATS.discard(chat_id)
-        keyboard = []
-        for cid in FREE_CHATS:
-            keyboard.append([InlineKeyboardButton(f"💬 Chat: {cid}", callback_data=f"chat_info_{cid}")])
-        keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
-        await query.edit_message_text(premium_emoji(f"🗑 Chat removed!\n\n💬 <b>Remaining ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def back_to_chats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if not FREE_CHATS:
-        await query.edit_message_text(premium_emoji("❌ No free chats."), parse_mode="HTML")
-        return
-    keyboard = []
-    for chat_id in FREE_CHATS:
-        keyboard.append([InlineKeyboardButton(f"💬 Chat: {chat_id}", callback_data=f"chat_info_{chat_id}")])
-    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_chats")])
-    await query.edit_message_text(premium_emoji(f"💬 <b>Free Chats ({len(FREE_CHATS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def close_chats_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.delete_message()
-
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1195,14 +1124,11 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
     
-    # Hit notification فقط للـ approved أو live
     if status == "approved" or status == "live":
         hit_counter += 1
-        if FREE_CHATS:
-            username = update.effective_user.username or "No Username"
-            status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
-            for free_chat_id in FREE_CHATS:
-                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+        username = update.effective_user.username or "No Username"
+        status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
+        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
@@ -1211,10 +1137,10 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
-                try:
-                    await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
-                except:
-                    pass
+        try:
+            await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
+        except:
+            pass
 
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1369,7 +1295,7 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{response}</code>
-⚡ Status: {status_text}
+❌ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1401,7 +1327,7 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-⚡ Status: {status_text}
+❌ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1430,7 +1356,7 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{result}</code>
-⚡ Status: {status_text}
+❌ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1461,7 +1387,7 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 💳 Card: <code>{card_full}</code>
 ⚡ Response: <code>{message}</code>
-⚡ Status: {status_text}
+❌ Status: {status_text}
 ⏱ Taken: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
 📌 Info: <code>{info}</code>
@@ -1496,16 +1422,13 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_auth_response(card, result_dict, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
     
-    # Hit notification للـ approved أو live فقط
     status = result_dict.get('status', 'declined')
     if status == "approved" or status == "live":
         hit_counter += 1
-        if FREE_CHATS:
-            username = update.effective_user.username or "No Username"
-            status_text = "🔥 Approved" if status == "approved" else "💵 Live"
-            message = result_dict.get('message', '')
-            for free_chat_id in FREE_CHATS:
-                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+        username = update.effective_user.username or "No Username"
+        status_text = "🔥 Approved" if status == "approved" else "💵 Live"
+        message = result_dict.get('message', '')
+        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
@@ -1514,10 +1437,10 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: Auth
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
-                try:
-                    await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
-                except:
-                    pass
+        try:
+            await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
+        except:
+            pass
 
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1570,7 +1493,6 @@ def can_user_check(user_id, chat_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
     if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
-    if chat_id in FREE_CHATS: return True
     return mode == "single"
 
 async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1578,7 +1500,7 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if not can_user_check(user_id, chat_id, "file"):
-        await update.message.reply_text(premium_emoji("❌ File arrays require Premium or Free Chat."), parse_mode="HTML")
+        await update.message.reply_text(premium_emoji("❌ File arrays require Premium."), parse_mode="HTML")
         return
     try:
         os.makedirs("downloads", exist_ok=True)
@@ -1652,11 +1574,8 @@ async def process_paypal_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
-                # Hit notification
                 hit_counter += 1
-                if FREE_CHATS:
-                    for free_chat_id in FREE_CHATS:
-                        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @Unknown
@@ -1665,19 +1584,16 @@ async def process_paypal_file(file_path, chat_id, context):
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
-                        try:
-                            await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
-                        except:
-                            pass
+                try:
+                    await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
+                except:
+                    pass
             elif status == "live":
                 live += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                # Hit notification
                 hit_counter += 1
-                if FREE_CHATS:
-                    for free_chat_id in FREE_CHATS:
-                        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
+                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
 📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @Unknown
@@ -1686,10 +1602,10 @@ async def process_paypal_file(file_path, chat_id, context):
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
-                        try:
-                            await context.bot.send_message(chat_id=free_chat_id, text=premium_emoji(hit_text), parse_mode="HTML")
-                        except:
-                            pass
+                try:
+                    await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
+                except:
+                    pass
             else:
                 declined += 1
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -1782,7 +1698,7 @@ async def process_square_file(file_path, chat_id, context):
     stop_users[user_id] = False
     try:
         approved = live = declined = 0
-        card_counter = 0  # ✅ صح
+        card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Square Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
         with open(file_path, 'r', encoding='utf-8') as f:
@@ -1877,8 +1793,7 @@ async def process_auth_file(file_path, chat_id, context):
 ⚡ Result: <code>{message[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except: pass
-            await asyncio.sleep(1)
+            except: pass            await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Auth complete."), parse_mode="HTML")
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
@@ -1902,8 +1817,6 @@ def main():
     app.add_handler(CommandHandler("wafa", wafa_command))
     app.add_handler(CommandHandler("show_users", show_users))
     app.add_handler(CommandHandler("show_gateways", show_gateways))
-    app.add_handler(CommandHandler("setchat", setchat))
-    app.add_handler(CommandHandler("showchat", showchat))
     app.add_handler(CommandHandler("ban_user", ban_user))
     app.add_handler(CommandHandler("unban_user", unban_user))
     app.add_handler(CommandHandler("try", try_reply))
@@ -1932,10 +1845,6 @@ def main():
     app.add_handler(CallbackQueryHandler(back_to_gateways_callback, pattern="^back_to_gateways$"))
     app.add_handler(CallbackQueryHandler(close_gateways_callback, pattern="^close_gateways$"))
     app.add_handler(CallbackQueryHandler(gateway_callback, pattern="^gateway_"))
-    app.add_handler(CallbackQueryHandler(chat_info_callback, pattern="^chat_info_"))
-    app.add_handler(CallbackQueryHandler(chat_remove_callback, pattern="^chat_remove_"))
-    app.add_handler(CallbackQueryHandler(back_to_chats_callback, pattern="^back_to_chats$"))
-    app.add_handler(CallbackQueryHandler(close_chats_callback, pattern="^close_chats$"))
     app.run_polling()
 
 if __name__ == "__main__":
