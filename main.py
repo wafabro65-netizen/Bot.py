@@ -490,15 +490,12 @@ class PayPalCommerce:
         text_strip = text.strip()
         text_lower = text_strip.lower()
 
-        # CHARGE حقيقي - النص حرفياً true (من givewp approve)
         if text_lower == 'true':
             return 'CHARGE 1.0'
 
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
-                # CHARGE حقيقي بالشكل المطلوب:
-                # success: true + data.order.status: COMPLETED + payment_source.card موجود
                 if approve_json.get('success') is True:
                     data = approve_json.get('data', {})
                     if isinstance(data, dict):
@@ -507,24 +504,20 @@ class PayPalCommerce:
                             order_status = str(order.get('status', '')).upper()
                             payment_source = order.get('payment_source', {})
                             card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
-                            
                             if order_status == 'COMPLETED' and card:
                                 return 'CHARGE 1.0'
         except:
             pass
 
-        # LIVE - أموال غير كافية
         if 'insufficient' in text_lower:
             return 'INSUFFICIENT_FUNDS'
 
-        # البحث عن أي رد PayPal معروف
         for pr in self.paypal_responses:
             if pr in text_strip.upper():
                 if pr == 'ORDER_NOT_APPROVED':
                     return "Payer cannot pay for this transaction."
                 return pr
 
-        # لو النص قصير ومش رد PayPal
         if len(text_strip) < 100:
             return "PAYER_ACTION_REQUIRED"
 
@@ -1027,7 +1020,6 @@ async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYP
     gate_num = int(query.data.split("_")[2])
     if 1 <= gate_num <= len(GATEWAYS):
         GATEWAYS.pop(gate_num - 1)
-        # إعادة ترقيم البوابات تلقائياً (بما إنها list فهرسها بيتحدث تلقائياً)
         keyboard = []
         for i, gateway in enumerate(GATEWAYS, 1):
             keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
@@ -1183,7 +1175,6 @@ async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
             idx = int(context.args[0])
             if 1 <= idx <= len(GATEWAYS):
                 GATEWAYS.pop(idx - 1)
-                # إعادة ترقيم تلقائياً
                 await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!\n\n📌 Remaining: {len(GATEWAYS)}"), parse_mode="HTML")
             else:
                 await update.message.reply_text(premium_emoji(f"❌ Gateway #{idx} not found!"), parse_mode="HTML")
@@ -1227,7 +1218,6 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     key_id = context.args[0]
     if key_id in STRIPE_KEYS:
         del STRIPE_KEYS[key_id]
-        # إعادة ترقيم المفاتيح
         new_keys = {}
         for i, (old_key, value) in enumerate(STRIPE_KEYS.items(), 1):
             new_keys[str(i)] = value
@@ -1555,8 +1545,6 @@ async def process_stripe_file(file_path, chat_id, context):
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🔄 Stripe Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
-        keys_list = list(STRIPE_KEYS.keys())
-        total_keys = len(keys_list)
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         for line in lines:
@@ -1567,6 +1555,11 @@ async def process_stripe_file(file_path, chat_id, context):
             if not match: continue
             card_full = match[0]
             card_counter += 1
+            keys_list = list(STRIPE_KEYS.keys())
+            total_keys = len(keys_list)
+            if total_keys == 0:
+                await context.bot.send_message(chat_id, premium_emoji("❌ No Stripe keys."), parse_mode="HTML")
+                return
             key_id = keys_list[(card_counter - 1) % total_keys]
             result = await loop.run_in_executor(None, check_stripe_sync, card_full, key_id)
             result_upper = str(result).upper()
