@@ -17,7 +17,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
 from datetime import datetime
 
-TOKEN = '7707742168:AAFv6SFEztGlej6seuKm6v9HZScmNjP3PEA'
+TOKEN = '8031233073:AAGgdXbO9TCxPYdPiedLlT9zGVxIMQFiML4'
 
 ADMINS = [6843321125]
 VIP_USERS = {}
@@ -33,7 +33,7 @@ gateway_index = 0
 STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
-HIT_CHAT_ID = 1002429830194  # شات الهيت الثابت
+HIT_CHAT_ID = 1002429830194
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -42,12 +42,10 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    # === تفاعلات الهيت ===
     "⚡": "6037229996622225123",
     "📌": "6037597564218384009",
     "🤖": "6039619012051082706",
     "🔥": "5206607081334906820",
-    # === تفاعلات الردود ===
     "💳": "5445353829304387411",
     "💵": "5197434882321567830",
     "❌": "6039615816595414817",
@@ -56,7 +54,6 @@ PREMIUM_EMOJI_IDS = {
     "🌐": "5447410659077661506",
     "👤": "6041709716231429926",
     "🛡": "6039615816595414817",
-    # === تفاعلات القوائم ===
     "🚀": "5195033767969839232",
     "💎": "6039601162167000043",
     "✅": "6034891730526935918",
@@ -111,8 +108,6 @@ async def get_bin_info(bin_number):
             continue
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
-
-# ═══════════════════════ PayPal Commerce Class ═══════════════════════
 
 class PayPalCommerce:
     def __init__(self, target_url):
@@ -656,8 +651,6 @@ class PayPalCommerce:
         except Exception as e:
             return f"Error: {e}"
 
-# ═══════════════════════ Check Card API ═══════════════════════
-
 async def check_card_api(card_full, gateway_url):
     async with api_semaphore:
         try:
@@ -682,8 +675,6 @@ async def check_card_api(card_full, gateway_url):
                     return "declined", "Declined"
         except Exception as e:
             return "declined", f"Error: {e}"
-
-# ═══════════════════════ Stripe Check ═══════════════════════
 
 def check_stripe_sync(card, key_id="1"):
     try:
@@ -748,8 +739,6 @@ def check_stripe_sync(card, key_id="1"):
             session.close()
         except:
             pass
-
-# ═══════════════════════ Square Check ═══════════════════════
 
 def classify_square_error(msg):
     msg_lower = str(msg).lower()
@@ -880,8 +869,6 @@ def check_square_sync(card):
     finally:
         session.close()
 
-# ═══════════════════════ Auth Check (بدون Timeout) ═══════════════════════
-
 def check_auth_sync(card):
     try:
         session = requests.Session()
@@ -916,8 +903,6 @@ def check_auth_sync(card):
             session.close()
         except:
             pass
-
-# ═══════════════════════ لوحة الأزرار ═══════════════════════
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1004,8 +989,6 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
     ]
     await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ═══════════════════════ لوحة البوابات ═══════════════════════
-
 async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         return
@@ -1065,8 +1048,6 @@ async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     await query.delete_message()
 
-# ═══════════════════════ أوامر ═══════════════════════
-
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """👑 ADMIN:
 • /add [url] - Add PayPal gateway
@@ -1103,7 +1084,6 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1271,8 +1251,6 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
 
-# ═══════════════════════ دوال التنسيق ═══════════════════════
-
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1397,12 +1375,9 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-# ═══════════════════════ أوامر الفحص ═══════════════════════
-
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1444,7 +1419,6 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1469,7 +1443,6 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
@@ -1489,7 +1462,7 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
 
-def can_user_check(user_id, chat_id, mode="file"):
+def can_user_check(user_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
     if user_id in VIP_USERS and VIP_USERS[user_id] > time.time(): return True
@@ -1499,7 +1472,7 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
     ALL_USERS.add(user_id)
-    if not can_user_check(user_id, chat_id, "file"):
+    if not can_user_check(user_id, "file"):
         await update.message.reply_text(premium_emoji("❌ File arrays require Premium."), parse_mode="HTML")
         return
     try:
@@ -1539,8 +1512,6 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
     user_tasks[user_id] = task
     del pending_files[user_id]
-
-# ═══════════════════════ Process Files ═══════════════════════
 
 async def process_paypal_file(file_path, chat_id, context):
     global gateway_index, hit_counter
@@ -1621,7 +1592,8 @@ async def process_paypal_file(file_path, chat_id, context):
 ⚡ Response: <code>{response}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except: pass
+            except:
+                pass
             await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 PayPal complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1685,7 +1657,8 @@ async def process_stripe_file(file_path, chat_id, context):
 ⚡ Result: <code>{result[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except: pass
+            except:
+                pass
             await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Stripe complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1738,7 +1711,8 @@ async def process_square_file(file_path, chat_id, context):
 ⚡ Result: <code>{result}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except: pass
+            except:
+                pass
             await asyncio.sleep(2)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Square complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1793,14 +1767,14 @@ async def process_auth_file(file_path, chat_id, context):
 ⚡ Result: <code>{message[:80]}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except: pass            await asyncio.sleep(1)
+            except:
+                pass
+            await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Auth complete."), parse_mode="HTML")
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
-
-# ═══════════════════════ Main ═══════════════════════
 
 async def error_handler(update, context):
     pass
