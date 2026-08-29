@@ -506,45 +506,87 @@ class PayPalCommerce:
                 except:
                     continue
         return None
+def _clean_response(self, text):
+    if not text:
+        return "DECLINED"
+    text_strip = text.strip()
+    text_lower = text_strip.lower()
 
-    def _clean_response(self, text):
-        if not text:
-            return "DECLINED"
-        text_strip = text.strip()
-        text_lower = text_strip.lower()
+    # منع APPROVED من CHARGE
+    if 'order_not_approved' in text_lower:
+        return "Payer cannot pay for this transaction."
+    if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
+        return "APPROVED"
 
-        if text_lower == 'true':
-            return 'CHARGE 1.0'
+    # CHARGE 1: true
+    if text_lower == 'true':
+        return 'CHARGE 1.0'
 
-        try:
-            approve_json = json.loads(text_strip)
-            if isinstance(approve_json, dict):
-                if approve_json.get('success') is True:
-                    data = approve_json.get('data', {})
-                    if isinstance(data, dict):
-                        order = data.get('order', {})
-                        if isinstance(order, dict):
-                            order_status = str(order.get('status', '')).upper()
-                            payment_source = order.get('payment_source', {})
-                            card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
-                            if order_status == 'COMPLETED' and card:
+    # CHARGE 2: success + data.order.status=COMPLETED + card
+    try:
+        approve_json = json.loads(text_strip)
+        if isinstance(approve_json, dict):
+            if approve_json.get('success') is True:
+                data = approve_json.get('data', {})
+                if isinstance(data, dict):
+                    order = data.get('order', {})
+                    if isinstance(order, dict):
+                        order_status = str(order.get('status', '')).upper()
+                        payment_source = order.get('payment_source', {})
+                        card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
+                        if order_status == 'COMPLETED' and card:
+                            return 'CHARGE 1.0'
+    except:
+        pass
+
+    # CHARGE 3: status COMPLETED مباشرة
+    try:
+        approve_json = json.loads(text_strip)
+        if isinstance(approve_json, dict):
+            if str(approve_json.get('status', '')).upper() == 'COMPLETED':
+                return 'CHARGE 1.0'
+    except:
+        pass
+
+    # CHARGE 4: purchase_units > captures > COMPLETED
+    try:
+        approve_json = json.loads(text_strip)
+        if isinstance(approve_json, dict):
+            if 'purchase_units' in approve_json:
+                for unit in approve_json['purchase_units']:
+                    if 'payments' in unit and 'captures' in unit['payments']:
+                        for capture in unit['payments']['captures']:
+                            if capture.get('status', '').upper() == 'COMPLETED':
                                 return 'CHARGE 1.0'
-        except:
-            pass
+    except:
+        pass
 
-        if 'insufficient' in text_lower:
-            return 'INSUFFICIENT_FUNDS'
+    # CHARGE 5: data.status = COMPLETED
+    try:
+        approve_json = json.loads(text_strip)
+        if isinstance(approve_json, dict):
+            data = approve_json.get('data', {})
+            if isinstance(data, dict):
+                if str(data.get('status', '')).upper() == 'COMPLETED':
+                    return 'CHARGE 1.0'
+    except:
+        pass
 
-        for pr in self.paypal_responses:
-            if pr in text_strip.upper():
-                if pr == 'ORDER_NOT_APPROVED':
-                    return "Payer cannot pay for this transaction."
-                return pr
+    # LIVE
+    if 'insufficient' in text_lower:
+        return 'INSUFFICIENT_FUNDS'
 
-        if len(text_strip) < 100:
-            return "PAYER_ACTION_REQUIRED"
+    # أي رد PayPal
+    for pr in self.paypal_responses:
+        if pr in text_strip.upper():
+            if pr == 'ORDER_NOT_APPROVED':
+                return "Payer cannot pay for this transaction."
+            return pr
 
-        return text_strip[:200]
+    if len(text_strip) < 100:
+        return "PAYER_ACTION_REQUIRED"
+
+    return text_strip[:200]
 
     def Charge(self, ccx):
         try:
