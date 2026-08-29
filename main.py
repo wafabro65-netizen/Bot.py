@@ -42,12 +42,10 @@ except:
     STRIPE_KEYS = {}
 
 PREMIUM_EMOJI_IDS = {
-    # === تفاعلات الهيت ===
     "⚡": "6037229996622225123",
     "📌": "6037597564218384009",
     "🤖": "6039619012051082706",
     "🔥": "5206607081334906820",
-    # === تفاعلات الردود ===
     "💳": "5445353829304387411",
     "💵": "5197434882321567830",
     "❌": "6039615816595414817",
@@ -56,7 +54,6 @@ PREMIUM_EMOJI_IDS = {
     "🌐": "5447410659077661506",
     "👤": "6041709716231429926",
     "🛡": "6039615816595414817",
-    # === تفاعلات جديدة ===
     "👑": "6041702032534936873",
     "🔗": "5933844889652432294",
     "📊": "5231200819986047254",
@@ -506,87 +503,88 @@ class PayPalCommerce:
                 except:
                     continue
         return None
-def _clean_response(self, text):
-    if not text:
-        return "DECLINED"
-    text_strip = text.strip()
-    text_lower = text_strip.lower()
 
-    # منع APPROVED من CHARGE
-    if 'order_not_approved' in text_lower:
-        return "Payer cannot pay for this transaction."
-    if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
-        return "APPROVED"
+    def _clean_response(self, text):
+        if not text:
+            return "DECLINED"
+        text_strip = text.strip()
+        text_lower = text_strip.lower()
 
-    # CHARGE 1: true
-    if text_lower == 'true':
-        return 'CHARGE 1.0'
+        # منع APPROVED من CHARGE
+        if 'order_not_approved' in text_lower:
+            return "Payer cannot pay for this transaction."
+        if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
+            return "APPROVED"
 
-    # CHARGE 2: success + data.order.status=COMPLETED + card
-    try:
-        approve_json = json.loads(text_strip)
-        if isinstance(approve_json, dict):
-            if approve_json.get('success') is True:
+        # CHARGE 1: true
+        if text_lower == 'true':
+            return 'CHARGE 1.0'
+
+        # CHARGE 2: success + data.order.status=COMPLETED + card
+        try:
+            approve_json = json.loads(text_strip)
+            if isinstance(approve_json, dict):
+                if approve_json.get('success') is True:
+                    data = approve_json.get('data', {})
+                    if isinstance(data, dict):
+                        order = data.get('order', {})
+                        if isinstance(order, dict):
+                            order_status = str(order.get('status', '')).upper()
+                            payment_source = order.get('payment_source', {})
+                            card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
+                            if order_status == 'COMPLETED' and card:
+                                return 'CHARGE 1.0'
+        except:
+            pass
+
+        # CHARGE 3: status COMPLETED مباشرة
+        try:
+            approve_json = json.loads(text_strip)
+            if isinstance(approve_json, dict):
+                if str(approve_json.get('status', '')).upper() == 'COMPLETED':
+                    return 'CHARGE 1.0'
+        except:
+            pass
+
+        # CHARGE 4: purchase_units > captures > COMPLETED
+        try:
+            approve_json = json.loads(text_strip)
+            if isinstance(approve_json, dict):
+                if 'purchase_units' in approve_json:
+                    for unit in approve_json['purchase_units']:
+                        if 'payments' in unit and 'captures' in unit['payments']:
+                            for capture in unit['payments']['captures']:
+                                if capture.get('status', '').upper() == 'COMPLETED':
+                                    return 'CHARGE 1.0'
+        except:
+            pass
+
+        # CHARGE 5: data.status = COMPLETED
+        try:
+            approve_json = json.loads(text_strip)
+            if isinstance(approve_json, dict):
                 data = approve_json.get('data', {})
                 if isinstance(data, dict):
-                    order = data.get('order', {})
-                    if isinstance(order, dict):
-                        order_status = str(order.get('status', '')).upper()
-                        payment_source = order.get('payment_source', {})
-                        card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
-                        if order_status == 'COMPLETED' and card:
-                            return 'CHARGE 1.0'
-    except:
-        pass
+                    if str(data.get('status', '')).upper() == 'COMPLETED':
+                        return 'CHARGE 1.0'
+        except:
+            pass
 
-    # CHARGE 3: status COMPLETED مباشرة
-    try:
-        approve_json = json.loads(text_strip)
-        if isinstance(approve_json, dict):
-            if str(approve_json.get('status', '')).upper() == 'COMPLETED':
-                return 'CHARGE 1.0'
-    except:
-        pass
+        # LIVE
+        if 'insufficient' in text_lower:
+            return 'INSUFFICIENT_FUNDS'
 
-    # CHARGE 4: purchase_units > captures > COMPLETED
-    try:
-        approve_json = json.loads(text_strip)
-        if isinstance(approve_json, dict):
-            if 'purchase_units' in approve_json:
-                for unit in approve_json['purchase_units']:
-                    if 'payments' in unit and 'captures' in unit['payments']:
-                        for capture in unit['payments']['captures']:
-                            if capture.get('status', '').upper() == 'COMPLETED':
-                                return 'CHARGE 1.0'
-    except:
-        pass
+        # أي رد PayPal
+        for pr in self.paypal_responses:
+            if pr in text_strip.upper():
+                if pr == 'ORDER_NOT_APPROVED':
+                    return "Payer cannot pay for this transaction."
+                return pr
 
-    # CHARGE 5: data.status = COMPLETED
-    try:
-        approve_json = json.loads(text_strip)
-        if isinstance(approve_json, dict):
-            data = approve_json.get('data', {})
-            if isinstance(data, dict):
-                if str(data.get('status', '')).upper() == 'COMPLETED':
-                    return 'CHARGE 1.0'
-    except:
-        pass
+        if len(text_strip) < 100:
+            return "PAYER_ACTION_REQUIRED"
 
-    # LIVE
-    if 'insufficient' in text_lower:
-        return 'INSUFFICIENT_FUNDS'
-
-    # أي رد PayPal
-    for pr in self.paypal_responses:
-        if pr in text_strip.upper():
-            if pr == 'ORDER_NOT_APPROVED':
-                return "Payer cannot pay for this transaction."
-            return pr
-
-    if len(text_strip) < 100:
-        return "PAYER_ACTION_REQUIRED"
-
-    return text_strip[:200]
+        return text_strip[:200]
 
     def Charge(self, ccx):
         try:
@@ -952,8 +950,6 @@ def check_auth_sync(card):
         except:
             pass
 
-# ═══════════════════════ لوحة الأزرار ═══════════════════════
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -1039,8 +1035,6 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
     ]
     await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ═══════════════════════ لوحة البوابات ═══════════════════════
-
 async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS:
         return
@@ -1099,8 +1093,6 @@ async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_
     query = update.callback_query
     await query.answer()
     await query.delete_message()
-
-# ═══════════════════════ أوامر ═══════════════════════
 
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """👑 ADMIN:
@@ -1305,8 +1297,6 @@ async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
 
-# ═══════════════════════ دوال التنسيق ═══════════════════════
-
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1443,8 +1433,6 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
-
-# ═══════════════════════ أوامر الفحص ═══════════════════════
 
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
@@ -1583,8 +1571,6 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
     user_tasks[user_id] = task
     del pending_files[user_id]
-
-# ═══════════════════════ Process Files ═══════════════════════
 
 async def process_paypal_file(file_path, chat_id, context):
     global gateway_index, hit_counter
@@ -1847,7 +1833,7 @@ async def process_auth_file(file_path, chat_id, context):
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
-        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML)
 
 async def error_handler(update, context):
     pass
