@@ -1119,175 +1119,69 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
+async def get_gateway_name(gateway_url):
+    if not gateway_url:
+        return "Default"
+    if 'paypal' in gateway_url.lower():
+        return "PayPal"
+    elif 'stripe' in gateway_url.lower():
+        return "Stripe"
+    elif 'square' in gateway_url.lower():
+        return "Square"
+    elif 'auth' in gateway_url.lower():
+        return "Auth $0"
+    elif 'centrobill' in gateway_url.lower():
+        return "CentroBill"
+    else:
+        return "Unknown"
+
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global hit_counter
+    global hit_counter, gateway_index
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
+    
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
         now = time.time()
         if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
             await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
             return
         last_check_time[user_id] = now
+    
     if not context.args:
         await update.message.reply_text(premium_emoji("💡 Usage: <code>/pp [card]</code>"), parse_mode="HTML")
         return
+    
     card_full = " ".join(context.args)
     gateway_num = 0
     gateway_url = None
     if GATEWAYS:
         gateway_num = (gateway_index % len(GATEWAYS)) + 1
         gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
+        gateway_index += 1
+    
     status, response = await check_card_api(card_full, gateway_url)
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
-
+    
+    # ====== hit detection ======
     if status == "approved" or status == "live":
         hit_counter += 1
-        username = update.effective_user.username or "No Username"
+        username = update.effective_user.username or "Unknown"
         status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
-        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
-📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+        gateway_name = await get_gateway_name(gateway_url)
+        
+        hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
         try:
             await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
         except:
             pass
-
-async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    stop_users[user_id] = True
-    await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
-
-async def try_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        user_id = int(context.args[0])
-        reply_text = " ".join(context.args[1:])
-        await context.bot.send_message(chat_id=user_id, text=premium_emoji(reply_text), parse_mode="HTML")
-    except: pass
-
-async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    broadcast_msg = " ".join(context.args)
-    for user_id in list(ALL_USERS):
-        try:
-            await context.bot.send_message(chat_id=user_id, text=premium_emoji(f"📢 {broadcast_msg}"), parse_mode="HTML")
-            await asyncio.sleep(0.05)
-        except: continue
-
-async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    if not context.args: return
-    code = context.args[0].upper()
-    if code not in CODES: return
-    code_data = CODES[code]
-    if code_data["used"] >= code_data["max_users"]: return
-    VIP_USERS[user_id] = int(time.time()) + code_data["duration"] * 86400
-    code_data["used"] += 1
-    await update.message.reply_text(premium_emoji(f"🚀 VIP activated for {code_data['duration']} days."), parse_mode="HTML")
-
-async def wafa_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        duration, max_users = int(context.args[0]), int(context.args[1])
-        code = "WAFA-" + "-".join("".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3))
-        CODES[code] = {"duration": duration, "max_users": max_users, "used": 0, "created": time.time()}
-        await update.message.reply_text(premium_emoji(f"💰 Code: <code>{code}</code>"), parse_mode="HTML")
-    except: pass
-
-async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    msg = "📊 Users:\n\n"
-    for uid in ALL_USERS:
-        status = "BANNED" if uid in BANNED_USERS else "VIP" if uid in VIP_USERS else "NORMAL"
-        msg += f"• <code>{uid}</code> - <b>{status}</b>\n"
-    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
-
-async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    BANNED_USERS[int(context.args[0])] = True
-    await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
-
-async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    BANNED_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
-
-async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    url = context.args[0]
-    if url not in GATEWAYS:
-        GATEWAYS.append(url)
-        await update.message.reply_text(premium_emoji(f"✅ Gateway #{len(GATEWAYS)} added."), parse_mode="HTML")
-
-async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    try:
-        if context.args:
-            idx = int(context.args[0])
-            if 1 <= idx <= len(GATEWAYS):
-                GATEWAYS.pop(idx - 1)
-                await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!\n\n📌 Remaining: {len(GATEWAYS)}"), parse_mode="HTML")
-            else:
-                await update.message.reply_text(premium_emoji(f"❌ Gateway #{idx} not found!"), parse_mode="HTML")
-        else:
-            if GATEWAYS:
-                GATEWAYS.pop()
-                await update.message.reply_text(premium_emoji("🗑 Last gateway removed."), parse_mode="HTML")
-            else:
-                await update.message.reply_text(premium_emoji("❌ No gateways to remove."), parse_mode="HTML")
-    except Exception as e:
-        await update.message.reply_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
-
-async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
-    await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
-
-async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    VIP_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
-
-async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    args_text = " ".join(context.args)
-    pk_match = re.search(r'pk_live_[a-zA-Z0-9]+', args_text)
-    sk_match = re.search(r'sk_live_[a-zA-Z0-9]+', args_text)
-    if not pk_match or not sk_match:
-        await update.message.reply_text(premium_emoji("💡 Usage:\n<code>/addkey pk_live_xxx sk_live_xxx</code>"), parse_mode="HTML")
-        return
-    pk, sk = pk_match.group(0), sk_match.group(0)
-    key_id = str(len(STRIPE_KEYS) + 1)
-    STRIPE_KEYS[key_id] = {"pk": pk, "sk": sk}
-    with open('stripe_keys.json', 'w') as f:
-        json.dump(STRIPE_KEYS, f)
-    await update.message.reply_text(premium_emoji(f"✅ Stripe Key Saved!\n🆔 Key ID: <code>{key_id}</code>"), parse_mode="HTML")
-
-async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS: return
-    if not context.args: return
-    key_id = context.args[0]
-    if key_id in STRIPE_KEYS:
-        del STRIPE_KEYS[key_id]
-        new_keys = {}
-        for i, (old_key, value) in enumerate(STRIPE_KEYS.items(), 1):
-            new_keys[str(i)] = value
-        STRIPE_KEYS.clear()
-        STRIPE_KEYS.update(new_keys)
-        with open('stripe_keys.json', 'w') as f:
-            json.dump(STRIPE_KEYS, f)
-        await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!\n\n📌 Remaining: {len(STRIPE_KEYS)}"), parse_mode="HTML")
-    else:
-        await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
 
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
@@ -1451,16 +1345,16 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status = result_dict.get('status', 'declined')
     if status == "approved" or status == "live":
         hit_counter += 1
-        username = update.effective_user.username or "No Username"
+        username = update.effective_user.username or "Unknown"
         status_text = "🔥 Approved" if status == "approved" else "💵 Live"
         message = result_dict.get('message', '')
-        hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
-📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+        gateway_name = "Auth $0"
+        hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{message}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: Auth
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
         try:
@@ -1597,13 +1491,13 @@ async def process_paypal_file(file_path, chat_id, context):
                 except:
                     pass
                 hit_counter += 1
-                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
-📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+                gateway_name = await get_gateway_name(gateway_url)
+                hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @Unknown
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 🔥 Charge
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
                 try:
@@ -1615,13 +1509,13 @@ async def process_paypal_file(file_path, chat_id, context):
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 hit_counter += 1
-                hit_text = f"""⚡ 𝗵𝗶𝘁 #{hit_counter}
-📌 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱
+                gateway_name = await get_gateway_name(gateway_url)
+                hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @Unknown
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: 💵 Insufficient Funds
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
-⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: #{gateway_num if gateway_num else 'Default'}
+⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
 - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
                 try:
@@ -1826,6 +1720,135 @@ async def process_auth_file(file_path, chat_id, context):
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
+async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    stop_users[user_id] = True
+    await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
+
+async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if not context.args: return
+    code = context.args[0].upper()
+    if code not in CODES: return
+    code_data = CODES[code]
+    if code_data["used"] >= code_data["max_users"]: return
+    VIP_USERS[user_id] = int(time.time()) + code_data["duration"] * 86400
+    code_data["used"] += 1
+    await update.message.reply_text(premium_emoji(f"🚀 VIP activated for {code_data['duration']} days."), parse_mode="HTML")
+
+async def wafa_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        duration, max_users = int(context.args[0]), int(context.args[1])
+        code = "WAFA-" + "-".join("".join(random.choices(string.ascii_uppercase + string.digits, k=4)) for _ in range(3))
+        CODES[code] = {"duration": duration, "max_users": max_users, "used": 0, "created": time.time()}
+        await update.message.reply_text(premium_emoji(f"💰 Code: <code>{code}</code>"), parse_mode="HTML")
+    except: pass
+
+async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    msg = "📊 Users:\n\n"
+    for uid in ALL_USERS:
+        status = "BANNED" if uid in BANNED_USERS else "VIP" if uid in VIP_USERS else "NORMAL"
+        msg += f"• <code>{uid}</code> - <b>{status}</b>\n"
+    await update.message.reply_text(premium_emoji(msg), parse_mode="HTML")
+
+async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    BANNED_USERS[int(context.args[0])] = True
+    await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
+
+async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    BANNED_USERS.pop(int(context.args[0]), None)
+    await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
+
+async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    url = context.args[0]
+    if url not in GATEWAYS:
+        GATEWAYS.append(url)
+        await update.message.reply_text(premium_emoji(f"✅ Gateway #{len(GATEWAYS)} added."), parse_mode="HTML")
+
+async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        if context.args:
+            idx = int(context.args[0])
+            if 1 <= idx <= len(GATEWAYS):
+                GATEWAYS.pop(idx - 1)
+                await update.message.reply_text(premium_emoji(f"🗑 Gateway #{idx} removed!\n\n📌 Remaining: {len(GATEWAYS)}"), parse_mode="HTML")
+            else:
+                await update.message.reply_text(premium_emoji(f"❌ Gateway #{idx} not found!"), parse_mode="HTML")
+        else:
+            if GATEWAYS:
+                GATEWAYS.pop()
+                await update.message.reply_text(premium_emoji("🗑 Last gateway removed."), parse_mode="HTML")
+            else:
+                await update.message.reply_text(premium_emoji("❌ No gateways to remove."), parse_mode="HTML")
+    except Exception as e:
+        await update.message.reply_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
+async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
+    await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
+
+async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    VIP_USERS.pop(int(context.args[0]), None)
+    await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
+
+async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    args_text = " ".join(context.args)
+    pk_match = re.search(r'pk_live_[a-zA-Z0-9]+', args_text)
+    sk_match = re.search(r'sk_live_[a-zA-Z0-9]+', args_text)
+    if not pk_match or not sk_match:
+        await update.message.reply_text(premium_emoji("💡 Usage:\n<code>/addkey pk_live_xxx sk_live_xxx</code>"), parse_mode="HTML")
+        return
+    pk, sk = pk_match.group(0), sk_match.group(0)
+    key_id = str(len(STRIPE_KEYS) + 1)
+    STRIPE_KEYS[key_id] = {"pk": pk, "sk": sk}
+    with open('stripe_keys.json', 'w') as f:
+        json.dump(STRIPE_KEYS, f)
+    await update.message.reply_text(premium_emoji(f"✅ Stripe Key Saved!\n🆔 Key ID: <code>{key_id}</code>"), parse_mode="HTML")
+
+async def remove_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    if not context.args: return
+    key_id = context.args[0]
+    if key_id in STRIPE_KEYS:
+        del STRIPE_KEYS[key_id]
+        new_keys = {}
+        for i, (old_key, value) in enumerate(STRIPE_KEYS.items(), 1):
+            new_keys[str(i)] = value
+        STRIPE_KEYS.clear()
+        STRIPE_KEYS.update(new_keys)
+        with open('stripe_keys.json', 'w') as f:
+            json.dump(STRIPE_KEYS, f)
+        await update.message.reply_text(premium_emoji(f"✅ Key {key_id} removed!\n\n📌 Remaining: {len(STRIPE_KEYS)}"), parse_mode="HTML")
+    else:
+        await update.message.reply_text(premium_emoji(f"❌ Key {key_id} not found!"), parse_mode="HTML")
+
+async def try_reply(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    try:
+        user_id = int(context.args[0])
+        reply_text = " ".join(context.args[1:])
+        await context.bot.send_message(chat_id=user_id, text=premium_emoji(reply_text), parse_mode="HTML")
+    except: pass
+
+async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    broadcast_msg = " ".join(context.args)
+    for user_id in list(ALL_USERS):
+        try:
+            await context.bot.send_message(chat_id=user_id, text=premium_emoji(f"📢 {broadcast_msg}"), parse_mode="HTML")
+            await asyncio.sleep(0.05)
+        except: continue
 
 async def error_handler(update, context):
     pass
