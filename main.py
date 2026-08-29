@@ -33,7 +33,7 @@ gateway_index = 0
 STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
-HIT_CHAT_ID = 1002429830194
+HIT_CHAT_ID = -1002429830194
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -510,17 +510,14 @@ class PayPalCommerce:
         text_strip = text.strip()
         text_lower = text_strip.lower()
 
-        # منع APPROVED من CHARGE
         if 'order_not_approved' in text_lower:
             return "Payer cannot pay for this transaction."
         if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
             return "APPROVED"
 
-        # CHARGE 1: true
         if text_lower == 'true':
             return 'CHARGE 1.0'
 
-        # CHARGE 2: success + data.order.status=COMPLETED + card
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -537,7 +534,6 @@ class PayPalCommerce:
         except:
             pass
 
-        # CHARGE 3: status COMPLETED مباشرة
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -546,7 +542,6 @@ class PayPalCommerce:
         except:
             pass
 
-        # CHARGE 4: purchase_units > captures > COMPLETED
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -559,7 +554,6 @@ class PayPalCommerce:
         except:
             pass
 
-        # CHARGE 5: data.status = COMPLETED
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -570,11 +564,9 @@ class PayPalCommerce:
         except:
             pass
 
-        # LIVE
         if 'insufficient' in text_lower:
             return 'INSUFFICIENT_FUNDS'
 
-        # أي رد PayPal
         for pr in self.paypal_responses:
             if pr in text_strip.upper():
                 if pr == 'ORDER_NOT_APPROVED':
@@ -1149,7 +1141,7 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     status, response = await check_card_api(card_full, gateway_url)
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
-    
+
     if status == "approved" or status == "live":
         hit_counter += 1
         username = update.effective_user.username or "No Username"
@@ -1455,7 +1447,7 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     taken = round(time.time() - start_time, 2)
     text = await format_auth_response(card, result_dict, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
-    
+
     status = result_dict.get('status', 'declined')
     if status == "approved" or status == "live":
         hit_counter += 1
@@ -1833,7 +1825,7 @@ async def process_auth_file(file_path, chat_id, context):
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
-        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML)
+        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def error_handler(update, context):
     pass
