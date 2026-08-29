@@ -1160,7 +1160,6 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
         gateway_index += 1
         
-        # ✅ تحديد نوع البوابة من الاختيار (افتراضي PayPal)
         if 'stripe' in gateway_url.lower():
             gateway_name = "Stripe"
         elif 'square' in gateway_url.lower():
@@ -1172,7 +1171,6 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
     await update.message.reply_text(text, parse_mode="HTML")
     
-    # ====== إرسال الهيت ======
     if status == "approved" or status == "live":
         hit_counter += 1
         user = update.effective_user
@@ -1355,6 +1353,7 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
 
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
@@ -1378,7 +1377,24 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = await format_stripe_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
 
+    result_upper = str(result).upper()
+    if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "🔥 Charge"
+        gateway_name = "Stripe"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+    elif "INSUFFICIENT" in result_upper or "LIVE" in result_upper:
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "💵 Insufficient Funds"
+        gateway_name = "Stripe"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
@@ -1398,6 +1414,21 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     taken = round(time.time() - start_time, 2)
     text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
+
+    if "CHARGE" in result:
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "🔥 Charge"
+        gateway_name = "Square"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+    elif "LIVE" in result:
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "💵 Insufficient Funds"
+        gateway_name = "Square"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
 
 def can_user_check(user_id, mode="file"):
     if user_id in ADMINS: return True
@@ -1438,7 +1469,6 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(premium_emoji("❌ File expired."), parse_mode="HTML")
         return
     
-    # ✅ جلب اليوزر الحقيقي
     user = query.from_user
     username = user.username or user.first_name or "Unknown"
     
@@ -1548,6 +1578,7 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe", username="Unknown"):
+    global hit_counter
     if not STRIPE_KEYS:
         await context.bot.send_message(chat_id, premium_emoji("❌ No Stripe keys."), parse_mode="HTML")
         return
@@ -1619,6 +1650,7 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def process_square_file(file_path, chat_id, context, gateway_name="Square", username="Unknown"):
+    global hit_counter
     user_id = chat_id
     stop_users[user_id] = False
     try:
@@ -1679,6 +1711,7 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0", username="Unknown"):
+    global hit_counter
     user_id = chat_id
     stop_users[user_id] = False
     try:
@@ -1875,10 +1908,13 @@ async def error_handler(update, context):
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_error_handler(error_handler)
+    
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cmds", cmds))
     app.add_handler(CommandHandler("pp", pp))
     app.add_handler(CommandHandler("auth", auth_check))
+    app.add_handler(CommandHandler("st", st_check))
+    app.add_handler(CommandHandler("sq", sq_check))
     app.add_handler(CommandHandler("stop", stop))
     app.add_handler(CommandHandler("code", code_command))
     app.add_handler(CommandHandler("wafa", wafa_command))
@@ -1894,9 +1930,9 @@ def main():
     app.add_handler(CommandHandler("rmprm", remove_prm))
     app.add_handler(CommandHandler("addkey", add_stripe_key))
     app.add_handler(CommandHandler("rmkey", remove_stripe_key))
-    app.add_handler(CommandHandler("st", st_check))
-    app.add_handler(CommandHandler("sq", sq_check))
+    
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file_panel))
+    
     app.add_handler(CallbackQueryHandler(free_cmds_callback, pattern="^free_cmds$"))
     app.add_handler(CallbackQueryHandler(vip_cmds_callback, pattern="^vip_cmds$"))
     app.add_handler(CallbackQueryHandler(admin_cmds_callback, pattern="^admin_cmds$"))
@@ -1912,6 +1948,7 @@ def main():
     app.add_handler(CallbackQueryHandler(back_to_gateways_callback, pattern="^back_to_gateways$"))
     app.add_handler(CallbackQueryHandler(close_gateways_callback, pattern="^close_gateways$"))
     app.add_handler(CallbackQueryHandler(gateway_callback, pattern="^gateway_"))
+    
     app.run_polling()
 
 if __name__ == "__main__":
