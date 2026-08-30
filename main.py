@@ -173,37 +173,32 @@ def fan_headers():
 # 3. تالت - init
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
-    
-    print(f"[FAN] Token: {FAN_TOKEN[:50]}...")
-    print(f"[FAN] SKU: {FAN_SKU[:50]}...")
-    
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-    
-    print(f"[FAN] Status: {r.status_code}")
-    print(f"[FAN] Body: {r.text[:1000]}")
-    
     if r.status_code == 401:
-        print("[FAN] 401 - Refreshing...")
         fan_refresh_token()
-        print(f"[FAN] New Token: {FAN_TOKEN[:50]}...")
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-        print(f"[FAN] Retry Status: {r.status_code}")
-        print(f"[FAN] Retry Body: {r.text[:1000]}")
-    
     if r.status_code != 200:
         return f"STATUS:{r.status_code}"
-    
     data = r.json()
-    
-    print(f"[FAN] Full JSON: {json.dumps(data, indent=2)[:1000]}")
-    
     mgpg = data.get('mgpgResponse')
     if not mgpg:
-        print(f"[FAN] Keys in response: {list(data.keys())}")
         return "NO_MGPG"
     
+    # vurl من الـ root مش من mgpgResponse
+    vurl = data.get('validationUrl', '')
+    if not vurl:
+        vurl = mgpg.get('validationUrl', '')
+    
     pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
-    return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
+    return {
+        'sid': mgpg.get('sessionId'),
+        'cid': mgpg.get('correlationId'),
+        'jwt': mgpg.get('jwtToken'),
+        'vurl': vurl,  # ← التصليح هنا
+        'akey': pr.get('authenticationKey'),
+        'ts': pr.get('timestamp'),
+        'tid': pr.get('identifier', '4023327228985313')
+    }
 # 4. رابع - tokenize
 def fan_tokenize(s, card, cvv):
     p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
