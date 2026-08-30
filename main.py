@@ -143,7 +143,6 @@ def fan_refresh_token():
 
 def fan_headers():
     return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
-
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
@@ -151,10 +150,12 @@ def fan_init():
         fan_refresh_token()
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
     if r.status_code != 200: return None
-    d = r.json()['mgpgResponse']
-    pr = d['nextAction']['extensions']['proxySettings']['settings']
-    return {'sid': d['sessionId'], 'cid': d['correlationId'], 'jwt': d['jwtToken'], 'vurl': r.json().get('validationUrl'), 'akey': pr['authenticationKey'], 'ts': pr['timestamp'], 'tid': pr['identifier']}
-
+    data = r.json()
+    mgpg = data.get('mgpgResponse')
+    if not mgpg:
+        return None
+    pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
+    return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
 def fan_tokenize(s, card, cvv):
     p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
     h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
