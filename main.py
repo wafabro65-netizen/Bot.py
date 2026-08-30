@@ -147,16 +147,32 @@ def fan_headers():
 
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
+    
+    print(f"[FAN] Token: {FAN_TOKEN[:50]}...")
+    print(f"[FAN] Cookie: {FAN_COOKIE[:50]}...")
+    print(f"[FAN] SKU: {FAN_SKU[:50]}...")
+    
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    
+    print(f"[FAN] Status: {r.status_code}")
+    print(f"[FAN] Body: {r.text[:500]}")
+    
     if r.status_code == 401:
+        print("[FAN] 401 - Refreshing...")
         fan_refresh_token()
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+        print(f"[FAN] Retry Status: {r.status_code}")
+        print(f"[FAN] Retry Body: {r.text[:500]}")
+    
     if r.status_code != 200:
         return f"STATUS:{r.status_code}"
+    
     data = r.json()
     mgpg = data.get('mgpgResponse')
     if not mgpg:
+        print(f"[FAN] No mgpg: {json.dumps(data)[:500]}")
         return "NO_MGPG"
+    
     pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
     return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
 
