@@ -146,11 +146,17 @@ def fan_headers():
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    print(f"Init Status: {r.status_code}")
     if r.status_code == 401:
+        print("401 - بحاول اعمل refresh...")
         fan_refresh_token()
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-    if r.status_code != 200: return None
+        print(f"Init بعد refresh: {r.status_code}")
+    if r.status_code != 200:
+        print(f"Init body: {r.text[:200]}")
+        return None
     data = r.json()
+    print(f"Init body: {json.dumps(data)[:200]}")
     mgpg = data.get('mgpgResponse')
     if not mgpg:
         return None
