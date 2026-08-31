@@ -37,7 +37,7 @@ HIT_CHAT_ID = -1002429830194
 MY_IP = "41.235.10.195"
 
 # ==================== FanCentro Data ====================
-FAN_TOKEN = "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJleHAiOjE3ODgxNTU5MDYsInBvcnRhbCI6ImZoIiwibmljayI6Imdvb2dsZTE3ODc5NzI0ODMiLCJ1X2lkIjoxNTExNDgxMTF9.RYi_7Jrt66zWWFozEgmg7q7FeD2LzXs1Z01bJLZwqH8"
+FAN_TOKEN = ""
 FAN_COOKIE = "test_group=A; __Host-ss=v1OQJVKVZ5tDJqlr-i7idxYXn59H9cmKPxm8ruy0RxYmcxNzk1NzUxMjkzMTI0NzExNTAxNTMyMzQ2NjQ1; ats=eyJhIjo5NDk2LCJjIjoyMTk3MywibiI6MTQ0LCJzIjo3NDgsImUiOjExMTg2LCJwIjozfQ==; __Host-ageModal=1; d_uid=6bb555f4-bc65-a0bc-0a89-e3fa448c8616; d_uidb=6bb555f4-bc65-a0bc-0a89-e3fa448c8616; __Host-cookieConsent=v12qpc4X1ATgRNTHhxzu2RstiN7Rl692Mo39yNcM8CmgoxNzk1NzUxMzkyZXNzZW50aWFs; atsd=2e852eeb-438b-4e60-b0b2-18d5e07b3274; LBSERVERID=ded7975; atss=2e852eeb-438b-4e60-b0b2-18d5e07b3274; etaguid=undefined; d_fs=1; __Host-uviuil=v13jqF5b0mcsj2Xz11MEjyrSW1_oGyFdSAJugIBQQ1SzIxNzg4MTk1MjUyVWY2LXUyV1RMSlZDLXNKS1RMRTltSGR3SkJXbDE1Y3lweGRic2NHWQ..; atstrackPiece1=eyJhZmZVcmwiOiJmYW5jZW50cm8uY29tIiwiYWZmQ29kZSI6ImV5SmhJam81TkRrMkxDSmpJam95TVRrM015d2liaUk2TVRRMExDSnpJam8zTkRnc0ltVWlPakV4TVRnMkxDSndJam96ZlE9PSIsIm5ldHdvcmtDb2RlIjoiZmFuIiwiVUlEIjoiMWM4NjI2YzAtZDM5Ny00OGRmLThiOGEtNDQyY2ExNTNmMjgxIiwiU1VJRCI6IjJlODUyZWViLTQzOGItNGU2MC1iMGIyLTE4ZDVlMDdiMzI3NCIsImRhdGEiOnsidmFsdWUiOjEsImFiIjowLCJ1c2VyQWdlbnQiOiJNb3ppbGxhLzUuMCAoWDExOyBMaW51eCB4ODZfNjQpIEFwcGxlV2ViS2l0LzUzNy4zNiAoS0hUTUwsIGxpa2UgR2Vja28pIENocm9tZS8xMzkuMC4wLjAgU2FmYXJpLzUzNy4zNiIsImFkSWQiOjAsInJlZmVycmFsRG9tYWluIjoiZmFuY2VudHJvLmNvbSIsInJlZmVycmFsUGF0aCI6Imh0dHBzOi8vZmFuY2VudHJvLmNvbS8ifSwiZG1wIjp7ImRtcElkIjoiNmJiNTU1ZjQtYmM2NS1hMGJjLTBhODktZTNmYTQ0OGM4NjE2In0sImRlZmF1bHRDb2RlIjoiZXlKaElqbzVORGsyTENKaklqb3lNVGszTXl3aWJpSTZNVFEwTENKeklqbzNORGdzSW1VaU9qRXhNVGcyTENKd0lqb3pmUT09Iiwic3BsaXRBdGxhc0RhdGEiOnRydWUsImRpc2FibGUiOmZhbHNlLCJzdGVwcyI6Inw7ZDt2O3Q7dTt8O2FjO3Y7dDt8O2FjO3Q7fDthYzt0O3w7YWM7dDt8O2FjO3Q7fCIsInZvcnRleGRhdGEiOnsiX3NzY3JlZW4iOiI1NDAgeCAxMTcwIiwiX3Nicm93c2VyIjoiQ2hyb21lIiwiX3Ni; atstrackPiece2=cm93c2VyVmVyc2lvbiI6IjEzOS4wLjAuMCIsIl9ibW9iaWxlIjp0cnVlLCJfc29zIjoiQW5kcm9pZCIsIl9zb3NWZXJzaW9uIjoiMTAiLCJfc2ZsYXNoVmVyc2lvbiI6Im5vIGNoZWNrIiwiX3NsYW5ndWFnZXMiOiJhciIsImd1aWQiOiIiLCJod21vZGVsIjoiR2VuZXJpYyBBbmRyb2lkIiwiaHdmYW1pbHkiOiJHZW5lcmljIEFuZHJvaWQiLCJkZXZ0eXBlIjoiU21hcnRQaG9uZSJ9LCJ2aXNpdFN0YXJ0IjoxNzg4MDcwNzQxNDEyLCJjb2RlVHlwZSI6ImF0cyJ9; __Host-platform=v1qn0bwuxIZvNcYHQiCj5cNKcrrzuhktWekZGFGgT6CHwxNzk1ODg1NTE3cGM."
 FAN_SKU = "FEIFsfiUaPicbAfC1RRBW6AdGiJ6Ho4ohtWR1bdicMQ23J5j692e0JJEy5RzUIcYf6m9ywLd7KKQQNYaMhPUQiY-mJtkyFJ9MQzIW0qR-q4iIVm0qtDRgR0p85fK0MGXTCI6jcUA-Bk9iFy_iecP1oziBrxUHH3SoEo0rnF-"
 
@@ -160,12 +160,35 @@ def fan_headers():
     }
 
 def fan_init():
-    p = {"creditAmount":500,"displayAmount":"5","displayAmountFormatted":"5,00 $","priceAmountUsd":5,"taxDisclaimer":"","billingDisclaimer":"One time charge of 5,00 $. Will not rebill.","amount":5,"taxAmount":0,"totalAmount":5,"taxDisplayType":1,"taxApplicationId":"","taxRate":0,"taxName":"","productSku":FAN_SKU,"freeCreditsAmount":0,"freeCreditsPercent":0,"currency":"USD","currencySymbol":"$","creditAmountTotal":500,"paymentType":"cc","paymentMethod":"cc","displayName":"CREDIT CARD","type":"credit","baseAmount":5,"freeCreditAmount":0,"price":"5"}
+    p = {
+        "creditAmount":500,
+        "displayAmount":"5",
+        "displayAmountFormatted":"5,00 $",
+        "priceAmountUsd":5,
+        "taxDisclaimer":"",
+        "billingDisclaimer":"One time charge of 5,00 $. Will not rebill.",
+        "amount":5,
+        "taxAmount":0,
+        "totalAmount":5,
+        "taxDisplayType":1,
+        "taxApplicationId":"",
+        "taxRate":0,
+        "taxName":"",
+        "productSku":FAN_SKU,
+        "freeCreditsAmount":0,
+        "freeCreditsPercent":0,
+        "currency":"USD",
+        "currencySymbol":"$",
+        "creditAmountTotal":500,
+        "paymentType":"cc",
+        "paymentMethod":"cc",
+        "displayName":"CREDIT CARD",
+        "type":"credit",
+        "baseAmount":5,
+        "freeCreditAmount":0,
+        "price":"5"
+    }
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
-    if r.status_code == 401:
-        fan_refresh_token()
-        time.sleep(2)
-        r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
     if r.status_code != 200:
         return f"STATUS:{r.status_code}"
     data = r.json()
