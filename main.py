@@ -150,6 +150,7 @@ def fan_init():
     r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
     if r.status_code == 401:
         fan_refresh_token()
+        time.sleep(2)
         r = requests.post("https://fancentro.com/api/v2/api/purchase/credits/init", json=p, headers=fan_headers(), timeout=30)
     if r.status_code != 200:
         return f"STATUS:{r.status_code}"
@@ -186,9 +187,13 @@ def fan_pay(s, token, cvv, em, ey):
 
 def fan_check_card(card, cvv, em, ey):
     fan_refresh_token()
+    time.sleep(2)  # ← ضيف السطر ده
+    
     s = fan_init()
     if isinstance(s, str):
         return f"ERROR: {s}"
+    if not s:
+        return "ERROR: Init failed"
     t = fan_tokenize(s, card, cvv)
     if not t:
         return "ERROR: TokenEx failed"
@@ -213,7 +218,7 @@ def fan_check_card(card, cvv, em, ey):
         else:
             return f"{status} - {reason}"
     return d.get('nextAction', {}).get('reason', 'Unknown')
-
+    
 def fan_parse_line(line):
     line = line.strip()
     parts = None
